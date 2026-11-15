@@ -148,7 +148,8 @@
   }
   function zig(q, amp, t0, t1) {
     t0 = t0 || 0; t1 = t1 == null ? 1 : t1;
-    var n = 22, p = qp(q, t0), d = 'M' + r(p.x) + ' ' + r(p.y);
+    var span = Math.sqrt(Math.pow(q.p2.x - q.p0.x, 2) + Math.pow(q.p2.y - q.p0.y, 2)) * (t1 - t0);
+    var n = Math.max(6, Math.round(span / 7)), p = qp(q, t0), d = 'M' + r(p.x) + ' ' + r(p.y);
     for (var i = 1; i < n; i++) {
       var t = t0 + (t1 - t0) * i / n, pt = qp(q, t), tg = qt(q, t), s = (i % 2 ? 1 : -1) * amp;
       d += 'L' + r(pt.x - tg.y * s) + ' ' + r(pt.y + tg.x * s);
@@ -308,7 +309,7 @@
     if (used.tentative) items.push(['tentative']);
     if (used.implied) items.push(['implied']);
 
-    var out = [], colW = 140, rowH = 34, per = Math.max(1, Math.floor(maxW / colW));
+    var out = [], colW = 156, rowH = 34, per = Math.max(1, Math.floor(maxW / colW));
     out.push(line(x0, y0 - 22, x0 + Math.min(maxW, per * colW) - 20, y0 - 22, { stroke: '#E4E0DB', 'stroke-width': 1 }));
     items.forEach(function (it, i) {
       var cx = x0 + (i % per) * colW, cy = y0 + Math.floor(i / per) * rowH, g = '', label = '', s = 9;
@@ -335,7 +336,7 @@
       else if (k === 'house') { g = '<rect x="' + cx + '" y="' + (cy - 10) + '" width="30" height="20" rx="7" fill="none" stroke="' + HOUSE + '" stroke-width="1.6" stroke-dasharray="4 3"/>'; label = '함께 사는 가족'; }
       else if (k === 'rel') {
         var parts = it[1].split(':'), sub = parts[1] ? { violence: 'violence', body: 'physical', emotion: 'emotional' }[parts[1]] : null;
-        g = relationSvg({ type: parts[0], sub: sub }, { p0: { x: cx, y: cy }, c: { x: cx + 17, y: cy }, p2: { x: cx + 34, y: cy } }, color).replace(/<text[^>]*>[^<]*<\/text>/g, '');
+        g = relationSvg({ type: parts[0], sub: sub }, { p0: { x: cx - 4, y: cy }, c: { x: cx + 18, y: cy }, p2: { x: cx + 40, y: cy } }, color).replace(/<text[^>]*>[^<]*<\/text>/g, '');
         label = parts[1] ? F.ABUSE_GROUP_LABEL[parts[1]] : F.REL[parts[0]].label;
       } else if (k === 'tentative') {
         g = '<circle cx="' + (cx + 14) + '" cy="' + cy + '" r="8" fill="' + PAPER + '" stroke="' + MUTED + '" stroke-width="1.4"/>' + text(cx + 14, cy + 4, '?', { 'font-size': 11, 'font-weight': 700, fill: MUTED });
@@ -345,7 +346,7 @@
         label = '확인 안 된 자리';
       }
       out.push(g);
-      out.push(text(cx + 40, cy + 5, label, { 'text-anchor': 'start' }));
+      out.push(text(cx + 48, cy + 5, label, { 'text-anchor': 'start' }));
     });
     return { svg: out.join(''), height: Math.ceil(items.length / per) * rowH + 10 };
   }
@@ -521,7 +522,8 @@
       var key = [rl.a, rl.b].sort().join('|');
       var n = pairCount[key] = (pairCount[key] || 0) + 1;
       // 같은 두 사람 사이 선이 여럿이면 나란히 띄운다
-      var off = (n - (pairTotal[key] + 1) / 2) * 10;
+      var off = (n - (pairTotal[key] + 1) / 2) * 26;
+      if ([rl.a, rl.b].sort()[0] !== rl.a) off = -off; // 방향이 반대인 선도 같은 기준으로 나란히
       // 곧은 선이 다른 사람 기호를 지나가면 그때만 살짝 휜다
       var bend = 0;
       m.persons.forEach(function (o) {

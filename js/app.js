@@ -197,8 +197,15 @@
       chart.innerHTML = '<div class="empty"><p>사례 문장을 적으면 여기에 가계도가 그려져요.</p>' +
         '<button class="btn btn-ghost btn-sm" type="button" data-load-example>예시 넣기</button></div>';
     } else chart.innerHTML = g.svg;
+    // 확대·축소: zoom 이 없으면 칸에 맞춤
+    chart.classList.toggle('zoomed', !!(g && state.zoom));
+    if (g && state.zoom) {
+      var svgEl = chart.querySelector('svg');
+      svgEl.style.width = Math.round(g.width * state.zoom) + 'px';
+      svgEl.style.maxHeight = 'none';
+    }
+    $('zoom-label').textContent = state.zoom ? Math.round(state.zoom * 100) + '%' : '맞춤';
     $('dl-png').disabled = !g;
-    $('dl-pdf').disabled = !g;
     $('chart-tip').hidden = !g;
   }
 
@@ -762,7 +769,7 @@
     var label = btn.textContent;
     btn.disabled = true;
     btn.textContent = '만드는 중…';
-    fn(g).catch(function (err) {
+    fn(g, state.title).catch(function (err) {
       $('parse-status').textContent = err.message || '내려받기를 만들지 못했어요. 다시 눌러 주세요.';
     }).then(function () {
       btn.disabled = false;
@@ -770,7 +777,30 @@
     });
   }
   $('dl-png').addEventListener('click', function () { busy(this, X.png); });
-  $('dl-pdf').addEventListener('click', function () { busy(this, X.pdf); });
+
+  // 확대·축소
+  var ZOOMS = [0.5, 0.67, 0.8, 1, 1.25, 1.5, 2];
+  function currentScale() {
+    var svgEl = $('chart').querySelector('svg');
+    var g = graphic(false);
+    if (!svgEl || !g) return 1;
+    return svgEl.getBoundingClientRect().width / g.width;
+  }
+  $('zoom-in').addEventListener('click', function () {
+    var s = state.zoom || currentScale();
+    state.zoom = ZOOMS.filter(function (z) { return z > s + 0.01; })[0] || ZOOMS[ZOOMS.length - 1];
+    drawChart();
+  });
+  $('zoom-out').addEventListener('click', function () {
+    var s = state.zoom || currentScale();
+    var smaller = ZOOMS.filter(function (z) { return z < s - 0.01; });
+    state.zoom = smaller.length ? smaller[smaller.length - 1] : ZOOMS[0];
+    drawChart();
+  });
+  $('zoom-fit').addEventListener('click', function () { state.zoom = null; drawChart(); });
+
+  // 사례 제목 → 내려받는 파일 이름
+  $('case-title').addEventListener('input', function () { state.title = this.value.trim().slice(0, 40); });
 
   drawAll();
 })();
