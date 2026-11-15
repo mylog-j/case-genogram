@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"><title>가계도 그리기 확인</title>
+<style>body{font:14px system-ui;margin:16px;background:#f3f1ee} figure{background:#fff;margin:0 0 16px;padding:8px;display:inline-block;vertical-align:top} figcaption{font-size:12px;color:#666;max-width:420px;white-space:pre-wrap}</style>
+</head>
+<body>
+<div id="out"></div>
+<script src="../js/parser.js"></script>
+<script src="../js/genogram.js"></script>
+<script>
+var cases = [
+  '내담자는 김하늘(여, 16세)이다.\n아버지는 김정우(47세)이고, 어머니는 박선영(44세)이다.\n아버지와 어머니는 3년 전에 이혼했다.\n오빠 김바다(19세)가 있고, 남동생 김지후(12세)가 있다.\n외할머니는 2021년에 사망했다.\n하늘이는 어머니와 밀착되어 있다.\n하늘이와 아버지는 갈등이 심하다.\n오빠와 아버지는 연락이 끊겨 단절된 상태이다.',
+  '내담자는 이수민(여, 38세)이다. 남편 박준호(40세)와 별거 중이다. 딸 박서연(8세)이 있다. 아들 박도윤(5세)이 있다. 친할아버지와 친할머니는 모두 사망했다. 외할아버지(70세)가 있다. 아버지가 내담자를 때렸다. 내담자는 어머니와 친밀하다. 남편과 소원하다.',
+  '동생이 있다. 내담자와 동생은 친밀하다.'
+];
+cases.forEach(function (t) {
+  var m = GenogramParser.parse(t);
+  var g = GenogramRender.render(m);
+  var f = document.createElement('figure');
+  f.innerHTML = (g ? g.svg : '(없음)') + '<figcaption>' + t + '</figcaption>';
+  document.getElementById('out').appendChild(f);
+});
+</script>
+</body>
+</html>
