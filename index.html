@@ -222,7 +222,17 @@
       <summary>알아듣는 낱말 모두 보기</summary>
       <dl>
         <dt>사람</dt>
-        <dd>내담자, 본인, 아버지(아빠), 어머니(엄마), 부모, 형, 오빠, 누나, 언니, 남동생, 여동생, 동생, 남편, 아내, 배우자, 전남편, 전처, 동거인, 아들, 딸, 자녀, 입양한 아들·딸, 위탁아동, 친할아버지, 친할머니, 외할아버지, 외할머니, 조부모, 새아버지(계부), 새어머니(계모), 이복·이부형제(이복동생 등), 쌍둥이 형·동생, 고모, 삼촌, 큰아버지, 작은아버지, 이모, 외삼촌, 시아버지, 시어머니, 장인, 장모, 반려견, 반려묘. “아버지의 전처”처럼 ‘의’로 이어 쓸 수도 있어요. 할아버지·할머니만 쓰면 친가인지 외가인지 물어봐요.</dd>
+        <dd>내담자, 본인, 아버지(아빠), 어머니(엄마), 부모, 형, 오빠, 누나, 언니, 남동생, 여동생, 동생, 남편, 아내, 배우자, 전남편, 전처, 동거인, 아들, 딸, 자녀, 장남·장녀·막내딸, 입양한 아들·딸, 위탁아동, 의붓아들·딸, 새아버지(계부), 새어머니(계모), 양부모, 이복·이부형제, 쌍둥이 형·동생, 반려견, 반려묘. 이름은 가명이나 영문 머리글자(A, B)로 적어도 돼요.</dd>
+        <dt>친가</dt>
+        <dd>친할아버지·친할머니(조부·조모), 증조·고조할아버지·할머니, 큰할아버지·작은할아버지(종조부), 큰할머니·작은할머니, 고모할머니(대고모), 큰아버지·큰어머니, 작은아버지·작은어머니, 고모·고모부, 당숙·당숙모, 당고모, 친사촌, 고종사촌, 육촌(재종), 당질</dd>
+        <dt>외가</dt>
+        <dd>외할아버지·외할머니(외조부·외조모), 외증조·외고조, 큰외할아버지·작은외할아버지, 외삼촌·외숙모, 이모·이모부, 외당숙, 외사촌, 이종사촌, 진외할아버지·진외할머니(아버지의 외가)</dd>
+        <dt>시댁·처가</dt>
+        <dd>시아버지, 시어머니, 시할아버지, 시할머니, 아주버님(시아주버니·시숙), 도련님·시동생, 시누이, 아가씨, 장인, 장모, 처형, 처제, 처남, 처남댁</dd>
+        <dt>형제·자녀의 가족</dt>
+        <dd>형부, 매형(자형), 제부, 매제, 올케, 형수, 제수(계수), 조카, 조카딸, 생질, 조카며느리, 조카사위, 며느리, 사위, 손자, 손녀, 외손자, 외손녀, 증손자. “아버지의 전처”, “남편의 누나”처럼 ‘의’로 이어 쓰거나 “남편에게는 누나가 있다”처럼 써도 돼요.</dd>
+        <dt>물어보는 호칭</dt>
+        <dd>할아버지·할머니(친가/외가), 사촌(어느 쪽), 삼촌(아버지의 남자 형제/외삼촌), 이모할머니, 형님, 동서, 서방님, 아버님·어머님, 형제가 여럿일 때의 조카</dd>
         <dt>부부</dt>
         <dd>결혼, 재혼, 이혼, 별거, 동거, 사실혼. “헤어졌다”는 별거인지 이혼인지 물어봐요.</dd>
         <dt>정서적 관계</dt>
@@ -230,7 +240,7 @@
         <dt>골라 주세요</dt>
         <dd>가깝다, 사이가 안 좋다, 연락이 뜸하다, 멀어졌다, 집착, 무서워한다, 훈육이 심했다, ~없이는 못 한다</dd>
         <dt>그 밖에</dt>
-        <dd>사망·돌아가셨다·별세(연도·나이), 1978년생, 임신 중, 유산, 사산, 임신중절, 함께 산다(동거가족 경계), 진술(정보 출처 표시)</dd>
+        <dd>사망·돌아가셨다·별세(연도·나이), 1978년생, 12세 딸, “1남 2녀 중 장녀”(형제 자리), 임신 중, 유산, 사산, 임신중절, 함께 산다(동거가족 경계), 진술(정보 출처 표시), “처남은 없다”(그리지 않음)</dd>
       </dl>
       <p class="words-note">알아듣지 못한 문장은 따로 알려 드려요. 가계도에서 사람이나 선을 눌러 직접 더하거나 고칠 수도 있어요.</p>
     </details>
@@ -305,14 +315,17 @@
             <button class="toggle" type="button" id="opt-legend" aria-pressed="true">범례</button>
           </div>
         </div>
+        <p class="edit-hint" id="chart-tip" hidden>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 14.5V16h1.5l8.8-8.8-1.5-1.5L4 14.5zM15.4 6.1a1 1 0 000-1.4l-1-1a1 1 0 00-1.4 0l-.9.9 2.4 2.4.9-.9z"/></svg>
+          <span><strong>사람 도형이나 관계선을 누르면 수정창이 열려요.</strong> 사람은 옆으로 끌어서 옮길 수 있어요.</span>
+        </p>
         <div class="chart" id="chart">
           <div class="empty">
             <p>사례 문장을 적으면 여기에 가계도가 그려져요.</p>
             <button class="btn btn-ghost btn-sm" type="button" data-load-example>예시 넣기</button>
           </div>
         </div>
-        <p class="chart-tip" id="chart-tip" hidden>사람이나 선을 누르면 아래에서 고칠 수 있어요. 사람은 옆으로 끌어서 옮길 수 있어요.</p>
-        <div class="inspector" id="inspector" aria-live="polite"></div>
+        <div class="roster" id="roster"></div>
         <div class="downloads">
           <button class="btn btn-ink btn-sm" type="button" id="dl-png" disabled>PNG로 내려받기</button>
           <button class="btn btn-ghost btn-sm" type="button" id="dl-pdf" disabled>PDF로 내려받기</button>
@@ -348,7 +361,7 @@
       </details>
       <details>
         <summary>그려진 가계도를 직접 고칠 수 있나요?</summary>
-        <div><p>네. 가계도에서 사람이나 선을 누르면 아래 편집 칸에서 이름, 성별, 나이, 연도, 관계 종류, 방향, ‘확인 필요’ 표시를 고칠 수 있어요. 누구를 기준으로든 부모·형제자매·배우자·자녀를 더할 수 있고, 사람은 옆으로 끌어서 옮길 수 있어요. 잘못 고쳤으면 되돌리기(Ctrl+Z)를 누르세요.</p></div>
+        <div><p>네. 가계도에서 사람 도형이나 관계선을 누르면 수정창이 열려 이름, 성별, 나이, 연도, 관계 종류, 방향, ‘확인 필요’ 표시를 고칠 수 있어요. 가계도 아래 ‘구성원 목록’과 ‘관계선 목록’에서도 [수정]을 누르거나, [+ 구성원 추가]로 누구를 기준으로든 부모·형제자매·배우자·자녀를 더할 수 있어요. 사람은 옆으로 끌어서 옮길 수 있고, 잘못 고쳤으면 되돌리기(Ctrl+Z)를 누르세요.</p></div>
       </details>
       <details>
         <summary>“엄마와 가깝다”처럼 애매한 문장은 어떻게 그려지나요?</summary>
@@ -365,6 +378,23 @@
     </div>
   </section>
 </main>
+
+<dialog class="editor" id="editor" aria-labelledby="editor-title">
+  <div class="editor-head">
+    <div>
+      <h3 id="editor-title">수정</h3>
+      <p id="editor-sub"></p>
+    </div>
+    <button class="icon-btn" type="button" id="editor-close" aria-label="수정창 닫기">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+    </button>
+  </div>
+  <div class="editor-body" id="editor-body"></div>
+  <div class="editor-foot">
+    <div id="editor-danger"></div>
+    <button class="btn btn-ink btn-sm" type="button" id="editor-done">완료</button>
+  </div>
+</dialog>
 
 <footer class="footer">
   <p class="footer-name">한글 문장으로 만드는 사례 가계도</p>

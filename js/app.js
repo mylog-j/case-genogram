@@ -171,7 +171,8 @@
     drawChart();
     drawStatus();
     drawChoices();
-    drawInspector();
+    drawRoster();
+    if (dlg.open) drawEditor();
     $('edited-banner').hidden = !state.edited;
     $('undo').disabled = !state.undo.length;
     $('redo').disabled = !state.redo.length;
@@ -192,6 +193,7 @@
   function drawStatus() {
     var lines = state.lines || [];
     var bad = lines.filter(function (l) { return l.status === 'partial' || l.status === 'none'; });
+    var warns = lines.filter(function (l) { return l.status === 'warn'; });
     var status = $('parse-status');
     if (!lines.length) status.textContent = '';
     else if (!bad.length && !state.choices.some(function (c) { return !c.value; })) status.textContent = '적은 내용을 모두 가계도에 반영했어요.';
@@ -199,7 +201,7 @@
     else status.textContent = '고를 것이 남아 있어요.';
     var ul = $('issues');
     ul.innerHTML = '';
-    bad.forEach(function (l) {
+    bad.concat(warns).forEach(function (l) {
       var li = el('li', { className: l.status });
       li.appendChild(el('q', { textContent: l.text }));
       li.appendChild(el('span', { textContent: l.hint }));
@@ -285,52 +287,175 @@
     });
   }
 
-  function drawInspector() {
-    var box = $('inspector');
+  // ── 구성원·관계선 목록 (늘 보이는 편집 입구) ─────────────
+  var ui = { addMember: false, addRel: false };
+
+  function miniSymbol(p) {
+    var s = '<svg viewBox="0 0 20 20" aria-hidden="true" class="mini' + (p.implied && !p.client ? ' faint' : '') + '">';
+    if (p.kind === 'pregnancy' || p.kind === 'miscarriage' || p.kind === 'abortion') s += '<polygon points="10,3 17,16 3,16"/>';
+    else if (p.kind === 'pet' || p.gender === 'U') s += '<polygon points="10,2 18,10 10,18 2,10"/>';
+    else if (p.gender === 'M') s += '<rect x="3" y="3" width="14" height="14"/>';
+    else s += '<circle cx="10" cy="10" r="7"/>';
+    if (p.client) s += p.gender === 'M' ? '<rect x="1" y="1" width="18" height="18" class="thin"/>' : '<circle cx="10" cy="10" r="9.3" class="thin"/>';
+    if (p.deceased) s += '<path d="M3 3l14 14M17 3L3 17"/>';
+    return s + '</svg>';
+  }
+  var RELATIVES = [
+    ['father', '아버지'], ['mother', '어머니'], ['sibling', '형제자매'], ['partner', '배우자·파트너'],
+    ['ex', '전 배우자'], ['child', '자녀'], ['pet', '반려동물']
+  ];
+  // p 기준으로 가족 한 명 더하기. 새 사람을 돌려준다.
+  function addRelative(p, kind) {
+    var m = state.model, pre = p.client ? '' : F.displayName(p) + '의 ', key = 'u:' + Date.now() + Math.random().toString(36).slice(2, 5), q;
+    if (kind === 'father' || kind === 'mother') {
+      q = F.parentOf(m, p.id, kind === 'father' ? 'M' : 'F', { label: pre + (kind === 'father' ? '아버지' : '어머니'), key: key }, true);
+      if (!q) return null;
+    } else if (kind === 'sibling') {
+      var u = F.ensureParentUnion(m, p.id);
+      q = F.addPerson(m, { label: pre + '형제자매', key: key });
+      F.addLink(m, u.id, q.id, 'bio');
+    } else if (kind === 'partner' || kind === 'ex') {
+      q = F.addPerson(m, { label: pre + (kind === 'ex' ? '전 배우자' : '배우자'), gender: p.gender === 'M' ? 'F' : p.gender === 'F' ? 'M' : 'U', key: key });
+      F.addUnion(m, p.id, q.id, kind === 'ex' ? 'divorced' : 'married');
+    } else if (kind === 'child') {
+      var cu = F.childUnion(m, p.id);
+      q = F.addPerson(m, { label: pre + '자녀', key: key });
+      F.addLink(m, cu.id, q.id, 'bio');
+    } else if (kind === 'pet') {
+      q = F.addPerson(m, { kind: 'pet', owner: p.id, label: '반려동물', key: key });
+    }
+    if (q) q.edited = true;
+    return q;
+  }
+
+  function drawRoster() {
+    var box = $('roster');
     box.innerHTML = '';
-    var m = state.model, sel = state.selected;
+    var m = state.model;
     if (!m.persons.length) {
-      box.appendChild(el('div', { className: 'insp-empty' }, [
+      box.appendChild(el('div', { className: 'roster-empty' }, [
         el('p', { textContent: '문장 없이 직접 그리고 싶다면 내담자부터 더해 보세요.' }),
-        button('내담자 더하기', act(function () {
+        button('+ 내담자 더하기', act(function () {
           var c = F.addPerson(m, { client: true, label: '내담자', key: 'u:client' });
           state.selected = { type: 'person', id: c.id };
           changed(c);
-        }))
+          openEditor();
+        }), 'btn btn-ink btn-sm')
       ]));
       return;
     }
-    if (!sel) {
-      var list = el('div', { className: 'people-list' });
-      m.persons.forEach(function (p) {
-        list.appendChild(button(F.displayName(p) + (p.client ? ' · 내담자' : p.name && p.label ? ' · ' + p.label : ''), function () { select_({ type: 'person', id: p.id }); }, 'chip'));
-      });
-      box.appendChild(el('div', { className: 'insp-head' }, [el('h3', { textContent: '직접 고치기' }), el('p', { textContent: '가계도에서 사람이나 선을 누르거나, 아래에서 고르세요.' })]));
-      box.appendChild(el('p', { className: 'insp-label', textContent: '사람' }));
-      box.appendChild(list);
-      var lines = el('div', { className: 'people-list' });
-      m.unions.filter(function (u) { return u.a && u.b; }).forEach(function (u) {
-        lines.appendChild(button(F.displayName(F.person(m, u.a)) + ' · ' + F.displayName(F.person(m, u.b)) + ' ' + F.UNION[u.status], function () { select_({ type: 'union', id: u.id }); }, 'chip'));
-      });
-      m.relations.forEach(function (r) {
-        lines.appendChild(button(F.displayName(F.person(m, r.a)) + (F.REL[r.type].dir ? ' → ' : ' ↔ ') + F.displayName(F.person(m, r.b)) + ' ' + F.REL[r.type].label, function () { select_({ type: 'rel', id: r.id }); }, 'chip'));
-      });
-      if (lines.children.length) {
-        box.appendChild(el('p', { className: 'insp-label', textContent: '부부·관계선' }));
-        box.appendChild(lines);
-      }
-      return;
+
+    // 구성원
+    var people = m.persons;
+    var col1 = el('section', { className: 'roster-col', 'aria-label': '구성원 목록' });
+    var h1 = el('div', { className: 'roster-head' }, [el('h3', {}, ['구성원 목록 ', el('span', { textContent: people.length + '명' })])]);
+    var addBtn = button(ui.addMember ? '닫기' : '+ 구성원 추가', function () { ui.addMember = !ui.addMember; drawRoster(); }, 'btn btn-ghost btn-sm');
+    addBtn.setAttribute('aria-expanded', ui.addMember ? 'true' : 'false');
+    h1.appendChild(addBtn);
+    col1.appendChild(h1);
+    if (ui.addMember) {
+      var base = select(personOptions(), (F.clientOf(m) || people[0]).id, function () {});
+      var kind = select(RELATIVES, 'sibling', function () {});
+      base.setAttribute('aria-label', '누구의');
+      kind.setAttribute('aria-label', '어떤 가족');
+      col1.appendChild(el('div', { className: 'roster-add' }, [
+        el('span', { textContent: '누구의' }), base, kind,
+        button('추가', act(function () {
+          var q = addRelative(F.person(m, base.value), kind.value);
+          if (!q) { alert('이미 부모가 두 명 있어요.'); return; }
+          ui.addMember = false;
+          state.selected = { type: 'person', id: q.id };
+          changed(q);
+          openEditor();
+        }), 'btn btn-ink btn-sm')
+      ]));
     }
+    var ul = el('ul', { className: 'roster-list' });
+    people.forEach(function (p) {
+      var li = el('li', { className: state.selected && state.selected.id === p.id ? 'on' : '' });
+      var sym = el('span', { className: 'roster-sym' });
+      sym.innerHTML = miniSymbol(p);
+      var meta = [];
+      if (p.name && (p.label || p.client)) meta.push(p.client ? '내담자' : p.label);
+      if (p.age != null) meta.push(p.age + '세');
+      if (p.deceased) meta.push('사망' + (p.deathYear ? ' ' + p.deathYear : ''));
+      if (p.implied && !p.client) meta.push('확인 안 된 자리');
+      li.appendChild(sym);
+      li.appendChild(el('span', { className: 'roster-name' }, [el('strong', { textContent: F.displayName(p) }), meta.length ? el('small', { textContent: meta.join(' · ') }) : null]));
+      li.appendChild(button('수정', function () { select_({ type: 'person', id: p.id }); }, 'btn-edit'));
+      ul.appendChild(li);
+    });
+    col1.appendChild(ul);
+
+    // 관계선
+    var col2 = el('section', { className: 'roster-col', 'aria-label': '관계선 목록' });
+    var lines = [];
+    m.unions.filter(function (u) { return u.a && u.b; }).forEach(function (u) {
+      lines.push({ sel: { type: 'union', id: u.id }, text: F.displayName(F.person(m, u.a)) + ' · ' + F.displayName(F.person(m, u.b)), tag: F.UNION[u.status] + (u.start || u.end ? ' ' + [u.start, u.end].filter(Boolean).join('–') : '') });
+    });
+    m.relations.forEach(function (r) {
+      lines.push({ sel: { type: 'rel', id: r.id }, rel: r, text: F.displayName(F.person(m, r.a)) + (F.REL[r.type].dir ? ' → ' : ' ↔ ') + F.displayName(F.person(m, r.b)), tag: F.REL[r.type].label + (r.tentative ? ' (확인 필요)' : '') });
+    });
+    var h2 = el('div', { className: 'roster-head' }, [el('h3', {}, ['관계선 목록 ', el('span', { textContent: lines.length + '개' })])]);
+    var addRel = button(ui.addRel ? '닫기' : '+ 관계선 추가', function () { ui.addRel = !ui.addRel; drawRoster(); }, 'btn btn-ghost btn-sm');
+    addRel.setAttribute('aria-expanded', ui.addRel ? 'true' : 'false');
+    h2.appendChild(addRel);
+    col2.appendChild(h2);
+    var opts = personOptions();
+    if (ui.addRel && opts.length >= 2) {
+      var a = select(opts, opts[0][0], function () {}), b = select(opts, opts[1][0], function () {});
+      var t = select(Object.keys(F.REL).map(function (k) { return [k, F.REL[k].label]; }), 'close', function () {});
+      a.setAttribute('aria-label', '사람 1'); b.setAttribute('aria-label', '사람 2'); t.setAttribute('aria-label', '관계 종류');
+      col2.appendChild(el('div', { className: 'roster-add' }, [a, t, b,
+        button('추가', act(function () {
+          if (a.value === b.value) { alert('서로 다른 두 사람을 골라 주세요.'); return; }
+          var r = F.addRelation(m, a.value, b.value, t.value, { sub: t.value === 'abuse' ? 'physical' : null });
+          if (r) r.edited = true;
+          ui.addRel = false;
+          changed();
+        }), 'btn btn-ink btn-sm')]));
+    }
+    var ul2 = el('ul', { className: 'roster-list' });
+    if (!lines.length) ul2.appendChild(el('li', { className: 'roster-none', textContent: '아직 관계선이 없어요.' }));
+    lines.forEach(function (ln) {
+      var li = el('li', { className: state.selected && state.selected.id === ln.sel.id ? 'on' : '' });
+      li.appendChild(el('span', { className: 'roster-name' }, [el('strong', { textContent: ln.text }), el('small', { textContent: ln.tag })]));
+      li.appendChild(button('수정', function () { select_(ln.sel); }, 'btn-edit'));
+      if (ln.rel) li.appendChild(button('지우기', act(function () {
+        state.deleted['r:' + relKey(m, ln.rel)] = 1;
+        m.relations = m.relations.filter(function (x) { return x !== ln.rel; });
+        changed();
+      }), 'btn-edit danger'));
+      ul2.appendChild(li);
+    });
+    col2.appendChild(ul2);
+    box.appendChild(col1);
+    box.appendChild(col2);
+  }
+
+  // ── 수정창 ──────────────────────────────────────────────
+  var dlg = $('editor');
+  function openEditor() {
+    drawEditor();
+    if (!dlg.open) { try { dlg.showModal(); } catch (e) { dlg.setAttribute('open', ''); } }
+  }
+  function drawEditor() {
+    var m = state.model, sel = state.selected, box = $('editor-body');
+    box.innerHTML = '';
+    if (!sel || !exists(sel)) { if (dlg.open) dlg.close(); return; }
     if (sel.type === 'person') personForm(box, F.person(m, sel.id));
     else if (sel.type === 'rel') relForm(box, m.relations.filter(function (r) { return r.id === sel.id; })[0]);
     else if (sel.type === 'union') unionForm(box, F.union(m, sel.id));
     else if (sel.type === 'link') linkForm(box, m.links.filter(function (l) { return l.id === sel.id; })[0]);
   }
-
   function head(box, title, sub) {
-    var close = button('닫기', function () { select_(null); }, 'btn-text');
-    box.appendChild(el('div', { className: 'insp-head' }, [el('h3', { textContent: title }), sub ? el('p', { textContent: sub }) : null, close]));
+    $('editor-title').textContent = title + ' 수정';
+    $('editor-sub').textContent = sub || '';
   }
+  $('editor-close').addEventListener('click', function () { dlg.close(); });
+  $('editor-done').addEventListener('click', function () { dlg.close(); });
+  dlg.addEventListener('close', function () { state.selected = null; drawChart(); drawRoster(); });
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
 
   function personForm(box, p) {
     if (!p) return;
@@ -372,33 +497,12 @@
     var parents = F.parentsOf(m, p.id);
     var hasF = parents.some(function (q) { return q.gender === 'M'; }), hasM = parents.some(function (q) { return q.gender === 'F'; });
     var full = parents.length >= 2;
-    var pre = p.client ? '' : F.displayName(p) + '의 ';
-    var bF = button('+ 아버지', act(function () { var q = F.parentOf(m, p.id, 'M', { label: pre + '아버지', key: 'u:' + Date.now() }, true); pick(q); }));
-    bF.disabled = hasF || full;
-    var bM = button('+ 어머니', act(function () { var q = F.parentOf(m, p.id, 'F', { label: pre + '어머니', key: 'u:' + Date.now() }, true); pick(q); }));
-    bM.disabled = hasM || full;
-    add.appendChild(bF); add.appendChild(bM);
-    add.appendChild(button('+ 형제자매', act(function () {
-      var u = F.ensureParentUnion(m, p.id);
-      var q = F.addPerson(m, { label: pre + '형제자매', key: 'u:' + Date.now() });
-      F.addLink(m, u.id, q.id, 'bio');
-      pick(q);
-    })));
-    add.appendChild(button('+ 배우자·파트너', act(function () {
-      var q = F.addPerson(m, { label: pre + '배우자', gender: p.gender === 'M' ? 'F' : p.gender === 'F' ? 'M' : 'U', key: 'u:' + Date.now() });
-      F.addUnion(m, p.id, q.id, 'married');
-      pick(q);
-    })));
-    add.appendChild(button('+ 자녀', act(function () {
-      var u = F.childUnion(m, p.id);
-      var q = F.addPerson(m, { label: pre + '자녀', key: 'u:' + Date.now() });
-      F.addLink(m, u.id, q.id, 'bio');
-      pick(q);
-    })));
-    add.appendChild(button('+ 반려동물', act(function () {
-      var q = F.addPerson(m, { kind: 'pet', owner: p.id, label: '반려동물', key: 'u:' + Date.now() });
-      pick(q);
-    })));
+    RELATIVES.forEach(function (rk) {
+      var b = button('+ ' + rk[1], act(function () { var q = addRelative(p, rk[0]); if (q) pick(q); }));
+      if (rk[0] === 'father') b.disabled = hasF || full;
+      if (rk[0] === 'mother') b.disabled = hasM || full;
+      add.appendChild(b);
+    });
     box.appendChild(add);
 
     // 관계선 더하기
@@ -534,12 +638,9 @@
   function select_(sel) {
     state.selected = sel;
     drawChart();
-    drawInspector();
-    if (sel) {
-      var box = $('inspector');
-      var r = box.getBoundingClientRect();
-      if (r.top > window.innerHeight - 80) box.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
-    }
+    drawRoster();
+    if (sel) openEditor();
+    else if (dlg.open) dlg.close();
   }
 
   // ── 가계도 누르기·끌기 ──────────────────────────────────
