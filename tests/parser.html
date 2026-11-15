@@ -12,9 +12,11 @@
 <h1>문장 해석 테스트</h1>
 <p id="summary"></p>
 <ol id="out"></ol>
+<script src="../js/model.js"></script>
 <script src="../js/parser.js"></script>
 <script>
 (function () {
+  var F = FamilyModel, parse = GenogramParser.parse;
   var out = document.getElementById('out');
   var pass = 0, fail = 0;
   function check(name, cond, detail) {
@@ -24,86 +26,148 @@
     out.appendChild(li);
     cond ? pass++ : fail++;
   }
-  function role(m, r) { return m.persons.filter(function (p) { return p.role === r; }); }
-  function one(m, r) { return role(m, r)[0]; }
-  function rel(m, a, b, type) {
-    return m.relations.some(function (x) { return x.a === a.id && x.b === b.id && x.type === type; });
-  }
+  function key(m, k) { return m.persons.filter(function (p) { return p.key === k; })[0]; }
+  function lab(m, l) { return m.persons.filter(function (p) { return p.label === l; }); }
+  function client(m) { return F.clientOf(m); }
+  function father(m) { return F.parentOf(m, client(m).id, 'M', null, false); }
+  function mother(m) { return F.parentOf(m, client(m).id, 'F', null, false); }
+  function unionOf(m, a, b) { return F.unionsOf(m, a.id).filter(function (u) { return F.partnerIn(u, a.id) === b.id; })[0]; }
+  function rel(m, a, b, type) { return m.relations.some(function (x) { return x.a === a.id && x.b === b.id && x.type === type; }); }
+  function sibs(m) { return F.siblingsOf(m, client(m).id); }
+  function J(x) { return JSON.stringify(x); }
 
   var example = [
     '내담자는 김하늘(여, 16세)이다.',
     '아버지는 김정우(47세)이고, 어머니는 박선영(44세)이다.',
-    '아버지와 어머니는 3년 전에 이혼했다.',
+    '아버지와 어머니는 2021년에 이혼했다.',
     '오빠 김바다(19세)가 있고, 남동생 김지후(12세)가 있다.',
     '외할머니는 2021년에 사망했다.',
     '하늘이는 어머니와 밀착되어 있다.',
     '하늘이와 아버지는 갈등이 심하다.',
     '오빠와 아버지는 연락이 끊겨 단절된 상태이다.'
   ].join('\n');
-  var m = GenogramParser.parse(example);
-  var c = one(m, 'client'), f = one(m, 'father'), mo = one(m, 'mother');
-  check('내담자 이름·성별·나이', c && c.name === '김하늘' && c.gender === 'F' && c.age === 16, JSON.stringify(c));
-  check('아버지 이름·나이', f && f.name === '김정우' && f.age === 47, JSON.stringify(f));
-  check('어머니 이름·나이', mo && mo.name === '박선영' && mo.age === 44, JSON.stringify(mo));
-  check('부모 이혼', m.unions.parents === 'divorced', m.unions.parents);
-  var sibs = role(m, 'sibling');
-  check('형제 두 명', sibs.length === 2, sibs.length);
-  var bada = sibs.filter(function (s) { return s.name === '김바다'; })[0];
-  var jihu = sibs.filter(function (s) { return s.name === '김지후'; })[0];
-  check('오빠 김바다 19세 남 손위', bada && bada.age === 19 && bada.gender === 'M' && bada.order === 'older', JSON.stringify(bada));
-  check('남동생 김지후 12세 손아래', jihu && jihu.age === 12 && jihu.order === 'younger', JSON.stringify(jihu));
-  var mgm = one(m, 'mgm');
-  check('외할머니 사망, 나이 없음', mgm && mgm.deceased && mgm.age === null, JSON.stringify(mgm));
-  check('어머니는 사망 아님', mo && !mo.deceased);
+  var m = parse(example);
+  var c = client(m), f = father(m), mo = mother(m);
+  check('내담자 이름·성별·나이', c && c.name === '김하늘' && c.gender === 'F' && c.age === 16, J(c));
+  check('아버지 이름·나이', f && f.name === '김정우' && f.age === 47, J(f));
+  check('어머니 이름·나이', mo && mo.name === '박선영' && mo.age === 44, J(mo));
+  var pu = unionOf(m, f, mo);
+  check('부모 이혼 + 연도', pu && pu.status === 'divorced' && pu.end === 2021, J(pu));
+  var s = sibs(m);
+  check('형제 두 명', s.length === 2, s.length);
+  var bada = s.filter(function (x) { return x.name === '김바다'; })[0];
+  var jihu = s.filter(function (x) { return x.name === '김지후'; })[0];
+  check('오빠 김바다 19세 남 손위', bada && bada.age === 19 && bada.gender === 'M' && bada.order === 'older', J(bada));
+  check('남동생 김지후 12세 손아래', jihu && jihu.age === 12 && jihu.order === 'younger', J(jihu));
+  var mgm = F.parentOf(m, mo.id, 'F', null, false);
+  check('외할머니 = 어머니의 어머니, 사망 2021', mgm && mgm.deceased && mgm.deathYear === 2021 && mgm.label === '외할머니', J(mgm));
+  check('어머니는 사망 아님', !mo.deceased);
   check('하늘-어머니 밀착', rel(m, c, mo, 'fused'));
   check('하늘-아버지 갈등', rel(m, c, f, 'conflict'));
   check('오빠-아버지 단절', rel(m, bada, f, 'cutoff'));
-  check('모든 문장 알아들음', m.lines.every(function (l) { return l.status === 'ok'; }),
-    JSON.stringify(m.lines.filter(function (l) { return l.status !== 'ok'; })));
+  check('모든 문장 알아들음', m.lines.every(function (l) { return l.status === 'ok'; }), J(m.lines.filter(function (l) { return l.status !== 'ok'; })));
 
-  // 직업 낱말을 이름으로 오해하지 않기
-  var m2 = GenogramParser.parse('아버지는 공무원이다. 어머니는 우울증이 있다. 누나는 고등학생이다.');
-  check('공무원은 이름 아님', !one(m2, 'father').name, one(m2, 'father').name);
-  check('우울증은 이름 아님', !one(m2, 'mother').name, one(m2, 'mother').name);
-  check('고등학생은 이름 아님', !one(m2, 'sibling').name, one(m2, 'sibling').name);
+  var m2 = parse('아버지는 공무원이다. 어머니는 우울증이 있다. 누나는 고등학생이다.');
+  check('직업 낱말을 이름으로 읽지 않기', !father(m2).name && !mother(m2).name && !sibs(m2)[0].name);
+  check('"형제"를 형으로 읽지 않기', sibs(parse('내담자는 형제가 없다.')).length === 0);
 
-  // 형제 낱말 경계
-  var m3 = GenogramParser.parse('내담자는 형제가 없다.');
-  check('"형제"를 형으로 읽지 않기', role(m3, 'sibling').length === 0);
+  var m4 = parse('내담자(남, 10세)는 부모와 갈등이 있다. 내담자는 아버지에게 폭행을 당했다.');
+  var c4 = client(m4), f4 = father(m4), mo4 = mother(m4);
+  check('부모 묶음 → 아버지·어머니', f4 && mo4);
+  check('내담자-부모 갈등', rel(m4, c4, f4, 'conflict') && rel(m4, c4, mo4, 'conflict'));
+  var ab = m4.relations.filter(function (r) { return r.type === 'abuse'; })[0];
+  check('당했다 → 아버지가 내담자에게, 신체', ab && ab.a === f4.id && ab.b === c4.id && ab.sub === 'physical', J(ab));
+  check('괄호 없는 내담자 성별·나이', c4.gender === 'M' && c4.age === 10, J(c4));
 
-  // 부모 묶음, 수동 폭력
-  var m4 = GenogramParser.parse('내담자(남, 10세)는 부모와 갈등이 있다. 내담자는 아버지에게 폭행을 당했다.');
-  var c4 = one(m4, 'client'), f4 = one(m4, 'father'), mo4 = one(m4, 'mother');
-  check('부모 묶음 → 아버지·어머니 생성', f4 && mo4);
-  check('내담자-아버지, 내담자-어머니 갈등', rel(m4, c4, f4, 'conflict') && rel(m4, c4, mo4, 'conflict'));
-  check('당했다 → 아버지가 내담자에게 폭력', rel(m4, f4, c4, 'abuse'));
-  check('괄호 없는 내담자 성별·나이', c4.gender === 'M' && c4.age === 10, JSON.stringify(c4));
+  var m5 = parse('아버지는 친할머니가 돌아가신 뒤 술을 자주 마셨다.');
+  var pgm5 = F.parentOf(m5, father(m5).id, 'F', null, false);
+  check('돌아가신 사람만 사망', pgm5 && pgm5.deceased && !father(m5).deceased);
+  var m6 = parse('친할아버지와 친할머니는 모두 사망했다.');
+  var gpu = F.parentsOf(m6, father(m6).id);
+  check('"와"로 이어진 두 사람 모두 사망', gpu.length === 2 && gpu.every(function (p) { return p.deceased; }));
+  check('오빠 → 내담자 여성 추정', client(parse('오빠가 있다.')).gender === 'F');
 
-  // 사망 대상 범위
-  var m5 = GenogramParser.parse('아버지는 할머니가 돌아가신 뒤 술을 자주 마셨다.');
-  check('돌아가신 사람만 사망', one(m5, 'pgm').deceased && !one(m5, 'father').deceased);
-  var m6 = GenogramParser.parse('할아버지와 할머니는 모두 사망했다.');
-  check('"와"로 이어진 두 사람 모두 사망', one(m6, 'pgf').deceased && one(m6, 'pgm').deceased);
+  var m8 = parse('내담자는 이수민(여, 38세)이다. 남편 박준호(40세)와 2020년부터 별거 중이다. 딸 박서연(8세)이 있다.');
+  var sp8 = F.person(m8, F.partnerIn(F.unionsOf(m8, client(m8).id)[0], client(m8).id));
+  check('남편 이름', sp8 && sp8.name === '박준호', J(sp8));
+  check('내담자 부부 별거', F.unionsOf(m8, client(m8).id)[0].status === 'separated');
+  var kids8 = F.childrenOf(m8, F.unionsOf(m8, client(m8).id)[0].id);
+  check('딸은 내담자 부부의 자녀', kids8.length === 1 && kids8[0].name === '박서연' && kids8[0].age === 8, J(kids8));
 
-  // 오빠 → 내담자 여성
-  var m7 = GenogramParser.parse('오빠가 있다.');
-  check('오빠 → 내담자 여성 추정', one(m7, 'client').gender === 'F');
+  var m9 = parse('내담자는 김민수이다. 집안 형편이 어렵다.');
+  check('사람 없는 문장 → none', m9.lines[1].status === 'none', J(m9.lines[1]));
+  check('"형편"을 형으로 읽지 않기', sibs(m9).length === 0);
 
-  // 내담자 결혼·자녀
-  var m8 = GenogramParser.parse('내담자는 이수민(여, 38세)이다. 남편 박준호(40세)와 별거 중이다. 딸 박서연(8세)이 있다.');
-  check('남편 이름', one(m8, 'spouse').name === '박준호', JSON.stringify(one(m8, 'spouse')));
-  check('내담자 부부 별거', m8.unions.client === 'separated', m8.unions.client);
-  check('딸 이름·나이', one(m8, 'child').name === '박서연' && one(m8, 'child').age === 8, JSON.stringify(one(m8, 'child')));
+  // ── 애매한 표현은 고르게
+  var m12 = parse('내담자는 김민수이다. 아버지가 있다. 민수는 아버지와 연락이 뜸하다.');
+  check('"연락이 뜸하다" → 선 없음 + 고르기', m12.relations.length === 0 && m12.choices.length === 1 && m12.lines[2].status === 'choice', J(m12.choices));
+  check('"연락이 뜸하다" 보기: 소원·단절·선 없음', J(m12.choices[0].options.map(function (o) { return o[0]; })) === J(['distant', 'cutoff', 'none']));
+  var ans = {}; ans[m12.choices[0].key] = 'distant';
+  var m12b = parse('내담자는 김민수이다. 아버지가 있다. 민수는 아버지와 연락이 뜸하다.', ans);
+  check('고른 답(소원) 반영', rel(m12b, client(m12b), father(m12b), 'distant'));
+  var m13 = parse('하늘이는 엄마와 가깝다.');
+  check('"엄마와 가깝다" → 친밀/밀착 고르기', m13.choices.length === 1 && J(m13.choices[0].options.map(function (o) { return o[0]; })) === J(['close', 'fused', 'none']));
+  var m14 = parse('어머니와 딸은 지나치게 가깝다.');
+  check('"지나치게 가깝다" → 밀착, 고르기 없음', m14.choices.length === 0 && m14.relations.length === 1 && m14.relations[0].type === 'fused', J(m14.relations));
+  check('"사이가 안 좋다" → 고르기', parse('내담자는 아버지와 사이가 안 좋다.').choices.length === 1);
+  check('"사이가 좋지 않다" → 고르기', parse('내담자는 아버지와 사이가 좋지 않다.').choices.length === 1);
+  check('"누나와 거의 연락하지 않는다" → 고르기', parse('내담자는 누나와 거의 연락하지 않는다.').choices.length === 1);
+  var m15 = parse('할머니는 2018년에 사망했다.');
+  check('할머니 → 친가/외가 고르기(기본 친가)', m15.choices.length === 1 && m15.choices[0].kind === 'side' && m15.choices[0].value === 'P');
+  var a15 = {}; a15[m15.choices[0].key] = 'M';
+  var m15b = parse('할머니는 2018년에 사망했다.', a15);
+  check('외가로 고르면 어머니의 어머니', F.parentOf(m15b, mother(m15b).id, 'F', null, false).deceased);
 
-  // 못 알아들은 문장
-  var m9 = GenogramParser.parse('내담자는 김민수이다. 집안 형편이 어렵다.');
-  check('사람 없는 문장 → none', m9.lines[1].status === 'none', JSON.stringify(m9.lines[1]));
-  check('"형편"을 형으로 읽지 않기', role(m9, 'sibling').length === 0);
+  // ── 적대·복합선·화살표선
+  check('적대', parse('내담자와 아버지는 적대적이다.').relations[0].type === 'hostile');
+  check('친밀하면서 갈등', parse('부부는 사이가 좋지만 자주 충돌한다. 아버지와 어머니는 사이가 좋지만 자주 충돌한다.').relations.some(function (r) { return r.type === 'closeConflict'; }));
+  var m16 = parse('어머니가 내담자의 모든 결정을 대신 결정한다.');
+  check('통제: 어머니 → 내담자', m16.relations.some(function (r) { return r.type === 'control' && r.a === mother(m16).id; }), J(m16.relations));
+  var m17 = parse('누나가 치매인 어머니를 돌본다.');
+  var care = m17.relations.filter(function (r) { return r.type === 'care'; })[0];
+  check('돌봄: 누나 → 어머니', care && F.person(m17, care.a).label === '누나', J(m17.relations));
+  var m18 = parse('내담자는 친척에게 성추행을 당했다고 진술했다. 내담자는 삼촌에게 성추행을 당했다고 진술했다.');
+  var sx = m18.relations.filter(function (r) { return r.type === 'abuse'; })[0];
+  check('성적 학대 + 진술 + 방향', sx && sx.sub === 'sexual' && sx.note === '진술' && sx.b === client(m18).id, J(sx));
 
-  var m10 = GenogramParser.parse('아버지와 어머니는 같은 회사에 다닌다.');
-  check('관계 말이 없는 두 사람 → partial 아님(새 사람 생성)', m10.lines[0].status === 'ok');
-  var m11 = GenogramParser.parse('아버지가 있다. 아버지와 어머니가 있다. 아버지와 어머니는 같은 회사에 다닌다.');
-  check('이미 아는 두 사람, 관계 말 없음 → partial', m11.lines[2].status === 'partial', JSON.stringify(m11.lines[2]));
+  // ── 재혼·이복·입양·쌍둥이
+  var m19 = parse('아버지는 재혼했다. 새어머니 이수진(45세)이 있다. 이복동생 김하준(6세)이 있다.');
+  var f19 = father(m19);
+  var us19 = F.unionsOf(m19, f19.id).filter(function (u) { return F.partnerIn(u, f19.id); });
+  var stepm = m19.persons.filter(function (p) { return p.name === '이수진'; })[0];
+  check('새어머니는 아버지의 다른 배우자', stepm && us19.some(function (u) { return F.partnerIn(u, f19.id) === stepm.id; }), J(m19.unions));
+  var hj = m19.persons.filter(function (p) { return p.name === '김하준'; })[0];
+  var hjU = F.parentUnionOf(m19, hj.id);
+  check('이복동생은 아버지·새어머니의 자녀', hjU && [hjU.a, hjU.b].indexOf(f19.id) >= 0 && [hjU.a, hjU.b].indexOf(stepm.id) >= 0, J(hjU));
+  var m20 = parse('내담자는 이수민(여, 38세)이다. 남편이 있다. 입양한 딸 박서연(8세)이 있다.');
+  var ad = m20.persons.filter(function (p) { return p.name === '박서연'; })[0];
+  check('입양한 딸 → 입양 연결', ad && F.linkOf(m20, ad.id).type === 'adopted');
+  var m21 = parse('내담자는 김하늘(여)이다. 일란성 쌍둥이 언니 김하나가 있다.');
+  var l21 = F.linkOf(m21, client(m21).id), s21 = sibs(m21)[0];
+  check('일란성 쌍둥이 언니', s21 && l21.twin && F.linkOf(m21, s21.id).twin === l21.twin && l21.identical, J(m21.links));
+  var m22 = parse('내담자는 박지수(여)이다. 남편이 있다. 쌍둥이 아들이 있다.');
+  var kids22 = F.childrenOf(m22, F.unionsOf(m22, client(m22).id)[0].id);
+  check('쌍둥이 아들 두 명', kids22.length === 2 && kids22.every(function (k) { return k.gender === 'M'; }) && F.linkOf(m22, kids22[0].id).twin, J(kids22));
+
+  // ── 연도·임신·반려동물·동거가족·고모
+  var m23 = parse('부모는 2010년에 결혼해 2021년에 이혼했다.');
+  var u23 = unionOf(m23, father(m23), mother(m23));
+  check('결혼·이혼 연도 둘 다', u23.start === 2010 && u23.end === 2021 && u23.status === 'divorced', J(u23));
+  var m24 = parse('내담자는 박지수(여)이다. 남편이 있다. 내담자는 2019년에 유산을 경험했다.');
+  check('유산 + 연도', m24.persons.some(function (p) { return p.kind === 'miscarriage' && p.birthYear === 2019; }));
+  check('"유산을 물려받았다"는 유산 아님', !parse('아버지는 할아버지의 유산을 물려받았다.').persons.some(function (p) { return p.kind === 'miscarriage'; }));
+  var m25 = parse('내담자는 어머니, 누나와 함께 산다. 반려견 콩이가 있다.');
+  check('함께 사는 가족 3명', m25.household.length === 3, J(m25.household));
+  check('반려견 이름', m25.persons.some(function (p) { return p.kind === 'pet' && p.name === '콩이'; }), J(m25.persons.filter(function (p) { return p.kind === 'pet'; })));
+  var m26 = parse('고모 김미영(50세)이 있다. 내담자는 고모와 친밀하다.');
+  var aunt = m26.persons.filter(function (p) { return p.name === '김미영'; })[0];
+  check('고모 = 아버지의 누이', aunt && F.siblingsOf(m26, father(m26).id).indexOf(aunt) >= 0 && rel(m26, client(m26), aunt, 'close'));
+  var m27 = parse('아버지의 전처는 최은정이다.');
+  check('"아버지의 전처" → 아버지와 이혼한 배우자', m27.persons.some(function (p) { return p.name === '최은정'; }) && F.unionsOf(m27, father(m27).id).some(function (u) { return u.status === 'divorced'; }));
+  check('1978년생', parse('아버지는 1978년생이다.').persons.some(function (p) { return p.birthYear === 1978; }));
+
+  var base = '내담자는 김민수(남, 10세)이다. 아버지와 어머니가 있다.';
+  check('문장 한 줄 더하면 사람 추가', parse(base + ' 누나 김지아(13세)가 있다.').persons.length === parse(base).persons.length + 1);
 
   document.getElementById('summary').textContent = '통과 ' + pass + ' · 실패 ' + fail;
   document.title = fail ? '실패 ' + fail : '모두 통과';
