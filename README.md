@@ -11,11 +11,14 @@
 | 파일 | 하는 일 |
 |---|---|
 | `index.html`, `css/style.css` | 화면 |
-| `js/parser.js` | 한글 문장 → 사람·부부·정서적 관계 |
+| `js/model.js` | 가족 모델 (사람·결합·부모자녀 연결·정서적 관계·함께 사는 가족) |
+| `js/parser.js` | 한글 문장 → 가족 모델, 애매한 표현은 '골라 주세요'로 |
+| `js/layout.js` | 세대·부부 묶음·형제 순서를 정해 자리 잡기 |
 | `js/genogram.js` | 가계도 SVG 그리기 |
 | `js/export.js` | PNG·PDF 만들기 |
-| `js/app.js` | 입력칸, 직접 고치기, 내려받기 |
-| `tests/parser.html` | 문장 해석 테스트 (브라우저에서 열기) |
+| `js/app.js` | 입력칸, 골라 주세요, 직접 고치기, 되돌리기, 내려받기 |
+| `js/hero.js` | 첫 화면 카드 콜라주와 타자기 예시 |
+| `tests/parser.html`, `tests/render.html` | 문장 해석 테스트, 그리기 확인 (브라우저에서 열기) |
 | `docs/PRD.md` | 설계도 |
 
 빌드 과정 없는 정적 사이트입니다. Vercel에 GitHub 저장소를 연결해 두면 `main`에 올릴 때마다 자동으로 배포됩니다.

@@ -40,9 +40,26 @@
 
 <main id="top">
   <!-- 첫 화면 -->
-  <section class="hero">
+  <section class="hero" id="hero">
+    <div class="collage" aria-hidden="true">
+      <div class="card card-note" data-pos="0 4 -4 0.05" data-depth="0.6">아버지와 어머니는<br>2021년에 이혼했다.</div>
+      <div class="card card-sym" data-pos="5 36 3 0.15" data-depth="1">
+        <svg viewBox="0 0 40 40"><rect x="8" y="8" width="24" height="24"/></svg><span>남성</span></div>
+      <div class="card card-sym" data-pos="-1 60 -2 0.25" data-depth="0.8">
+        <svg viewBox="0 0 64 40"><path d="M4 20h56M26 29l8-18M34 29l8-18"/></svg><span>이혼</span></div>
+      <div class="card card-note" data-pos="3 80 2 0.35" data-depth="0.4">외할머니는<br>2021년에 사망했다.</div>
+      <div class="card card-sym" data-pos="92 3 4 0.1" data-depth="0.9">
+        <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="12"/></svg><span>여성</span></div>
+      <div class="card card-note" data-pos="96 26 -3 0.2" data-depth="0.5">하늘이와 아버지는<br>갈등이 심하다.</div>
+      <div class="card card-sym" data-pos="90 55 2 0.3" data-depth="1">
+        <svg viewBox="0 0 64 40"><path class="coral" d="M4 20l5-6 5 12 5-12 5 12 5-12 5 12 5-12 5 12 5-12 5 6"/></svg><span>갈등</span></div>
+      <div class="card card-sym" data-pos="97 78 -4 0.4" data-depth="0.7">
+        <svg viewBox="0 0 64 40"><path class="lav" d="M4 13h56M4 20h56M4 27h56"/></svg><span>밀착</span></div>
+    </div>
+
     <div class="hero-copy">
-      <h1><span>사례를 문장으로 적으면,</span> <span>가계도가 그려집니다.</span></h1>
+      <h1 class="site-name"><span class="sn-1">한글 문장으로 만드는</span> <span class="sn-2">사례 가계도</span></h1>
+      <p class="tagline">사례를 문장으로 적으면, 가계도가 그려집니다.</p>
       <p class="lede">사회복지사·상담사·수련생을 위한 사례개념화 가계도 도구예요. 한국어 사례 기록에서 가족구조를 읽어, 표준 기호로 가계도 초안을 만들어 드려요.</p>
       <ul class="promise">
         <li>무료</li>
@@ -55,10 +72,10 @@
       </div>
     </div>
 
-    <figure class="demo" aria-label="가상 사례 문장이 가계도로 바뀌는 예시">
+    <figure class="demo" aria-label="가상 사례 문장이 한 줄씩 적히며 가계도가 그려지는 예시">
       <div class="demo-note">
         <p class="demo-tag">가상 사례</p>
-        <ol class="demo-lines" id="demo-lines"></ol>
+        <ol class="demo-lines" id="demo-lines" aria-hidden="true"></ol>
         <span class="hand hand-1" aria-hidden="true">실명 대신 가명으로</span>
       </div>
       <div class="demo-chart" id="demo-chart"></div>
@@ -95,7 +112,7 @@
         </div>
         <div class="after" role="cell">
           <h3>세대와 자리를 알아서 잡아요</h3>
-          <p>조부모·부모·형제·자녀를 세대별로 놓고, 형제는 나이순으로, 부부선과 자녀선은 제자리에 그려요. 재혼·이복형제처럼 여러 가족이 얽힌 구조는 아직 그리지 못해요.</p>
+          <p>조부모·부모·형제·자녀를 세대별로 놓고, 형제는 나이순으로 그려요. 재혼한 가족은 결합선을 따로 긋고, 이복·이부형제는 각자의 친부모 선에서 내려오게 그려요.</p>
         </div>
       </div>
       <div class="compare-row" role="row">
@@ -105,7 +122,7 @@
         </div>
         <div class="after" role="cell">
           <h3>기호와 범례가 정해져 있어요</h3>
-          <p>결혼·이혼·별거·동거, 친밀·밀착·갈등·소원·단절·폭력을 같은 모양으로 그리고, 쓰인 기호만 범례로 붙여요.</p>
+          <p>결혼·동거·별거·이혼, 입양·위탁·쌍둥이, 친밀·밀착·갈등·적대·소원·단절·폭력·돌봄을 정해진 모양으로 그리고, 쓰인 기호만 범례로 붙여요. 흑백으로 인쇄해도 선 모양으로 구별돼요.</p>
         </div>
       </div>
       <div class="compare-row" role="row">
@@ -115,7 +132,7 @@
         </div>
         <div class="after" role="cell">
           <h3>문장 한 줄을 더하면 다시 그려요</h3>
-          <p>새로 알게 된 내용을 한 줄 적으면 전체 배치를 다시 계산해 그려요.</p>
+          <p>새로 알게 된 내용을 한 줄 적으면 전체 배치를 다시 계산해 그려요. 가계도에서 직접 고친 내용은 그대로 둬요.</p>
         </div>
       </div>
     </div>
@@ -123,6 +140,10 @@
     <div class="practice">
       <h3 class="practice-title">실무에서는 이렇게 도와요</h3>
       <div class="practice-grid">
+        <div>
+          <h4>그리는 시간을 줄여요</h4>
+          <p>도형을 하나씩 그리고, 선을 잇고, 줄을 맞추는 일을 하지 않아도 돼요. 사례 기록을 정리하고 나면 가계도 초안까지 바로 나와요.</p>
+        </div>
         <div>
           <h4>기록과 그림이 어긋나지 않아요</h4>
           <p>상담 기록에 적은 문장에서 바로 가계도를 만들기 때문에, 기록을 고치면 그림도 같은 내용으로 다시 그려져요.</p>
@@ -133,7 +154,7 @@
         </div>
         <div>
           <h4>판단은 실무자에게 남겨 둬요</h4>
-          <p>“아버지와 연락이 뜸하다”처럼 해석이 필요한 문장은 단절로 단정해 선을 긋지 않고, 확인할 문장으로 따로 보여 드려요. 어떤 관계로 볼지는 ‘직접 고치기’에서 정하면 돼요.</p>
+          <p>“엄마와 가깝다”처럼 친밀인지 밀착인지 갈리는 문장은 선을 미리 긋지 않고 직접 고르도록 물어봐요. 그려진 뒤에도 사람과 선을 눌러 모두 고칠 수 있어요.</p>
         </div>
       </div>
     </div>
@@ -168,13 +189,28 @@
       </article>
       <article class="rule" role="listitem">
         <h3>부부 관계</h3>
-        <p class="rule-ex">아버지와 어머니는 3년 전에 이혼했다.</p>
-        <p class="rule-out">결혼, 이혼, 별거, 동거를 부부선에 표시해요.</p>
+        <p class="rule-ex">아버지와 어머니는 2021년에 이혼했다.</p>
+        <p class="rule-out">결혼, 이혼, 별거, 동거를 부부선에 표시하고, 연도를 적으면 ‘이혼 2021’처럼 함께 적어요.</p>
+      </article>
+      <article class="rule" role="listitem">
+        <h3>재혼과 이복형제</h3>
+        <p class="rule-ex">아버지는 재혼했다. 새어머니 이수진(45세)이 있다. 이복동생 김하준(6세)이 있다.</p>
+        <p class="rule-out">새 배우자와 결합선을 따로 긋고, 이복동생은 아버지와 새어머니 사이에서 내려와요.</p>
+      </article>
+      <article class="rule" role="listitem">
+        <h3>입양·쌍둥이·임신</h3>
+        <p class="rule-ex">입양한 딸 박서연(8세)이 있다. 쌍둥이 아들이 있다.</p>
+        <p class="rule-out">입양은 파선, 위탁은 점선, 쌍둥이는 한 점에서 갈라지는 선으로 그려요. 임신·유산·사산도 적을 수 있어요.</p>
       </article>
       <article class="rule" role="listitem">
         <h3>정서적 관계</h3>
         <p class="rule-ex">하늘이와 아버지는 갈등이 심하다.</p>
-        <p class="rule-out">친밀, 밀착, 갈등, 소원, 단절, 폭력을 두 사람 사이에 선으로 그려요.</p>
+        <p class="rule-out">친밀, 밀착, 갈등, 적대, 소원, 단절을 두 사람 사이에 선으로 그려요. 폭력·통제·돌봄은 하는 사람에서 받는 사람 쪽으로 화살표를 붙여요.</p>
+      </article>
+      <article class="rule" role="listitem">
+        <h3>애매하면 골라요</h3>
+        <p class="rule-ex">하늘이는 엄마와 가깝다.</p>
+        <p class="rule-out">친밀인지 밀착인지 갈리는 문장은 선을 긋지 않고 ‘골라 주세요’에서 묻어요.</p>
       </article>
       <article class="rule" role="listitem">
         <h3>이름으로 다시 부르기</h3>
@@ -186,15 +222,17 @@
       <summary>알아듣는 낱말 모두 보기</summary>
       <dl>
         <dt>사람</dt>
-        <dd>내담자, 본인, 아버지(아빠), 어머니(엄마), 부모, 형, 오빠, 누나, 언니, 남동생, 여동생, 동생, 남편, 아내, 배우자, 아들, 딸, 자녀, 친할아버지, 친할머니, 외할아버지, 외할머니, 조부모. 할아버지·할머니만 쓰면 친가로 그려요.</dd>
+        <dd>내담자, 본인, 아버지(아빠), 어머니(엄마), 부모, 형, 오빠, 누나, 언니, 남동생, 여동생, 동생, 남편, 아내, 배우자, 전남편, 전처, 동거인, 아들, 딸, 자녀, 입양한 아들·딸, 위탁아동, 친할아버지, 친할머니, 외할아버지, 외할머니, 조부모, 새아버지(계부), 새어머니(계모), 이복·이부형제(이복동생 등), 쌍둥이 형·동생, 고모, 삼촌, 큰아버지, 작은아버지, 이모, 외삼촌, 시아버지, 시어머니, 장인, 장모, 반려견, 반려묘. “아버지의 전처”처럼 ‘의’로 이어 쓸 수도 있어요. 할아버지·할머니만 쓰면 친가인지 외가인지 물어봐요.</dd>
         <dt>부부</dt>
-        <dd>결혼, 재혼, 이혼, 별거, 동거, 사실혼</dd>
+        <dd>결혼, 재혼, 이혼, 별거, 동거, 사실혼. “헤어졌다”는 별거인지 이혼인지 물어봐요.</dd>
         <dt>정서적 관계</dt>
-        <dd>친밀(가깝다, 사이가 좋다), 밀착(융합, 과잉보호), 갈등(다툼, 불화, 사이가 나쁘다), 소원(거리감, 서먹하다), 단절(연락이 끊겼다, 왕래가 없다), 폭력(학대, 폭행, 때렸다)</dd>
-        <dt>사망</dt>
-        <dd>사망, 돌아가셨다, 별세, 작고, 세상을 떠났다</dd>
+        <dd>친밀(친밀하다, 사이가 좋다), 밀착(융합, 과잉보호, 지나치게 가깝다), 갈등(다툼, 불화, 충돌), 적대(적대적, 증오), 소원(거리감, 서먹하다), 단절(연락이 끊겼다, 왕래가 없다, 절연), 폭력·학대(폭행, 때렸다, 성추행, 폭언, 방임), 통제(간섭, 결정을 대신), 부정적 초점(탓을 돌린다, 희생양), 돌봄(돌본다, 주 보호자)</dd>
+        <dt>골라 주세요</dt>
+        <dd>가깝다, 사이가 안 좋다, 연락이 뜸하다, 멀어졌다, 집착, 무서워한다, 훈육이 심했다, ~없이는 못 한다</dd>
+        <dt>그 밖에</dt>
+        <dd>사망·돌아가셨다·별세(연도·나이), 1978년생, 임신 중, 유산, 사산, 임신중절, 함께 산다(동거가족 경계), 진술(정보 출처 표시)</dd>
       </dl>
-      <p class="words-note">알아듣지 못한 문장은 따로 알려 드려요. 아래 ‘직접 고치기’에서 사람과 관계를 손으로 더하거나 고칠 수도 있어요.</p>
+      <p class="words-note">알아듣지 못한 문장은 따로 알려 드려요. 가계도에서 사람이나 선을 눌러 직접 더하거나 고칠 수도 있어요.</p>
     </details>
   </section>
 
@@ -343,5 +381,6 @@
 <script src="js/genogram.js"></script>
 <script src="js/export.js"></script>
 <script src="js/app.js"></script>
+<script src="js/hero.js"></script>
 </body>
 </html>
