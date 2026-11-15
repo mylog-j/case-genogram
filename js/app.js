@@ -1,302 +1,644 @@
 /*
- * 화면 동작. 입력한 문장은 이 파일 밖으로 나가지 않는다.
- * (저장소·쿠키·네트워크를 쓰지 않는다)
+ * 가계도 만들기 화면: 문장 → 가계도, 골라 주세요, 직접 고치기, 되돌리기, 내려받기
+ * 입력한 내용은 이 파일 밖으로 나가지 않는다 (저장소·쿠키·네트워크를 쓰지 않는다).
  */
 (function () {
   'use strict';
 
-  var P = window.GenogramParser, R = window.GenogramRender, X = window.GenogramExport;
+  var F = window.FamilyModel, P = window.GenogramParser, R = window.GenogramRender, X = window.GenogramExport;
 
   var EXAMPLE = [
     '내담자는 김하늘(여, 16세)이다.',
     '아버지는 김정우(47세)이고, 어머니는 박선영(44세)이다.',
-    '아버지와 어머니는 3년 전에 이혼했다.',
+    '아버지와 어머니는 2021년에 이혼했다.',
     '오빠 김바다(19세)가 있고, 남동생 김지후(12세)가 있다.',
     '외할머니는 2021년에 사망했다.',
     '하늘이는 어머니와 밀착되어 있다.',
     '하늘이와 아버지는 갈등이 심하다.',
     '오빠와 아버지는 연락이 끊겨 단절된 상태이다.'
   ];
-
-  var ROLE_OPTIONS = [
-    ['client', '내담자'],
-    ['father', '아버지'],
-    ['mother', '어머니'],
-    ['sibling:older', '손위 형제자매'],
-    ['sibling:younger', '손아래 형제자매'],
-    ['spouse', '배우자'],
-    ['child', '자녀'],
-    ['pgf', '친할아버지'],
-    ['pgm', '친할머니'],
-    ['mgf', '외할아버지'],
-    ['mgm', '외할머니']
-  ];
-  var GENDER_OPTIONS = [['M', '남성'], ['F', '여성'], ['U', '모름']];
-  var REL_OPTIONS = ['close', 'fused', 'conflict', 'distant', 'cutoff', 'abuse'];
-  var UNION_NAMES = { parents: '아버지 · 어머니', client: '내담자 · 배우자', paternal: '친할아버지 · 친할머니', maternal: '외할아버지 · 외할머니' };
-  var UNION_ROLES = { parents: ['father', 'mother'], client: ['client', 'spouse'], paternal: ['pgf', 'pgm'], maternal: ['mgf', 'mgm'] };
+  window.GENOGRAM_EXAMPLE = EXAMPLE;
 
   var $ = function (id) { return document.getElementById(id); };
   var text = $('case-text');
-  var state = { model: P.newModel(), edited: false, graphic: null };
+  var state = {
+    model: F.create(), choices: [], answers: {}, edited: false,
+    deleted: {}, selected: null, undo: [], redo: [],
+    settings: { mono: false, generations: false, legend: true }
+  };
+
+  // ── 되돌리기 ────────────────────────────────────────────
+  function snapshot() {
+    return JSON.stringify({ model: state.model, answers: state.answers, edited: state.edited, deleted: state.deleted, text: text.value });
+  }
+  function restore(s) {
+    var o = JSON.parse(s);
+    state.model = o.model; state.answers = o.answers; state.edited = o.edited; state.deleted = o.deleted;
+    text.value = o.text;
+    state.selected = null;
+    var parsed = P.parse(text.value, state.answers);
+    state.choices = parsed.choices;
+    state.lines = parsed.lines;
+    drawAll();
+  }
+  function checkpoint() {
+    state.undo.push(snapshot());
+    if (state.undo.length > 60) state.undo.shift();
+    state.redo = [];
+  }
+  function undo() { if (!state.undo.length) return; state.redo.push(snapshot()); restore(state.undo.pop()); }
+  function redo() { if (!state.redo.length) return; state.undo.push(snapshot()); restore(state.redo.pop()); }
+
+  // ── 문장 → 모델 ─────────────────────────────────────────
+  function personKeys(p) {
+    var ks = [];
+    if (p.key) ks.push('k:' + p.key);
+    if (p.name) ks.push('n:' + p.name);
+    return ks;
+  }
+
+  function merge(parsed) {
+    var cur = state.model, map = {}, umap = {};
+    parsed.persons.forEach(function (p) {
+      if (personKeys(p).some(function (k) { return state.deleted[k]; })) return;
+      var c = cur.persons.filter(function (q) { return (p.name && q.name === p.name) || (p.key && q.key === p.key); })[0];
+      if (!c) {
+        c = F.addPerson(cur, p);
+        c.key = p.key;
+      } else if (!c.edited) {
+        ['name', 'label', 'age', 'birthYear', 'deathYear', 'genderLabel'].forEach(function (k) { if ((c[k] == null || c[k] === '') && p[k] != null && p[k] !== '') c[k] = p[k]; });
+        if (c.gender === 'U' && p.gender !== 'U') c.gender = p.gender;
+        if (p.deceased) c.deceased = true;
+        if (p.client && !cur.persons.some(function (q) { return q.client; })) c.client = true;
+        if (!c.key) c.key = p.key;
+      }
+      if (p.owner && map[p.owner]) c.owner = map[p.owner];
+      map[p.id] = c.id;
+    });
+    parsed.unions.forEach(function (u) {
+      var a = u.a && map[u.a], b = u.b && map[u.b];
+      if ((u.a && !a) || (u.b && !b)) return;
+      var ex = null;
+      if (a && b) ex = cur.unions.filter(function (x) { return (x.a === a && x.b === b) || (x.a === b && x.b === a); })[0];
+      if (ex) {
+        if (!ex.edited) { ex.status = u.status; if (u.start) ex.start = u.start; if (u.end) ex.end = u.end; }
+        umap[u.id] = ex.id;
+      } else if (a && b) {
+        umap[u.id] = F.addUnion(cur, a, b, u.status, { start: u.start, end: u.end }).id;
+      } else umap[u.id] = null; // 한쪽·빈 결합은 자녀 연결 때 정한다
+    });
+    parsed.links.forEach(function (l) {
+      var child = map[l.child];
+      if (!child) return;
+      var have = F.linkOf(cur, child);
+      if (have) { if (!have.edited && have.type !== l.type) have.type = l.type; return; }
+      var uid = umap[l.union];
+      if (!uid) {
+        var pu = F.union(parsed, l.union);
+        var a = pu.a && map[pu.a], b = pu.b && map[pu.b];
+        var found = cur.unions.filter(function (x) {
+          return (a && (x.a === a || x.b === a) && !F.partnerIn(x, a)) || (!a && !b && F.childrenOf(cur, x.id).some(function (k) { return F.siblingsOf(parsed, l.child).some(function (s) { return map[s.id] === k.id; }); }));
+        })[0];
+        uid = found ? found.id : F.addUnion(cur, a || null, b || null, pu.status).id;
+        umap[l.union] = uid;
+      }
+      var nl = F.addLink(cur, uid, child, l.type);
+      nl.twin = l.twin; nl.identical = l.identical;
+    });
+    // 고르기로 정한 관계는 답이 바뀌면 따라 바뀐다
+    var parsedKeyed = {};
+    parsed.relations.forEach(function (r) { if (r.key) parsedKeyed[r.key] = r; });
+    cur.relations = cur.relations.filter(function (r) {
+      if (!r.key || r.edited) return true;
+      var pr = parsedKeyed[r.key];
+      if (!pr) return false;
+      r.type = pr.type;
+      return true;
+    });
+    parsed.relations.forEach(function (r) {
+      var a = map[r.a], b = map[r.b];
+      if (!a || !b || state.deleted['r:' + r.a + r.type + r.b] || state.deleted['r:' + relKey(parsed, r)]) return;
+      if (r.key && cur.relations.some(function (x) { return x.key === r.key; })) return;
+      F.addRelation(cur, a, b, r.type, r);
+    });
+    parsed.household.forEach(function (id) { var c = map[id]; if (c && cur.household.indexOf(c) < 0) cur.household.push(c); });
+    F.cleanup(cur);
+  }
+
+  function relKey(m, r) {
+    var a = F.person(m, r.a), b = F.person(m, r.b);
+    return (a && (a.key || a.name)) + '|' + r.type + '|' + (b && (b.key || b.name));
+  }
+
+  function fromText(reset) {
+    var parsed = P.parse(text.value, state.answers);
+    state.choices = parsed.choices;
+    state.lines = parsed.lines;
+    if (reset || !state.edited) {
+      state.model = parsed;
+      state.edited = false;
+      state.deleted = {};
+    } else merge(parsed);
+    if (state.selected && !exists(state.selected)) state.selected = null;
+    drawAll();
+  }
+
+  function exists(sel) {
+    var m = state.model;
+    if (sel.type === 'person') return !!F.person(m, sel.id);
+    if (sel.type === 'union') return !!F.union(m, sel.id);
+    if (sel.type === 'rel') return m.relations.some(function (r) { return r.id === sel.id; });
+    if (sel.type === 'link') return m.links.some(function (l) { return l.id === sel.id; });
+    return false;
+  }
+
+  // 직접 고친 뒤 호출
+  function changed(obj) {
+    if (obj) obj.edited = true;
+    if (!state.edited) state.edited = true;
+    drawAll();
+  }
 
   // ── 그리기 ──────────────────────────────────────────────
+  function graphic(forExport) {
+    return R.render(state.model, {
+      mono: state.settings.mono, generations: state.settings.generations, legend: state.settings.legend,
+      selected: forExport ? null : state.selected
+    });
+  }
+
+  function drawAll() {
+    drawChart();
+    drawStatus();
+    drawChoices();
+    drawInspector();
+    $('edited-banner').hidden = !state.edited;
+    $('undo').disabled = !state.undo.length;
+    $('redo').disabled = !state.redo.length;
+  }
+
   function drawChart() {
-    var g = R.render(state.model);
-    state.graphic = g;
+    var g = graphic(false);
     var chart = $('chart');
     if (!g) {
       chart.innerHTML = '<div class="empty"><p>사례 문장을 적으면 여기에 가계도가 그려져요.</p>' +
         '<button class="btn btn-ghost btn-sm" type="button" data-load-example>예시 넣기</button></div>';
-    } else {
-      chart.innerHTML = g.svg;
-    }
+    } else chart.innerHTML = g.svg;
     $('dl-png').disabled = !g;
     $('dl-pdf').disabled = !g;
+    $('chart-tip').hidden = !g;
   }
 
-  function drawFeedback() {
-    var lines = state.model.lines;
-    var ok = lines.filter(function (l) { return l.status === 'ok'; }).length;
+  function drawStatus() {
+    var lines = state.lines || [];
+    var bad = lines.filter(function (l) { return l.status === 'partial' || l.status === 'none'; });
     var status = $('parse-status');
     if (!lines.length) status.textContent = '';
-    else if (ok === lines.length) status.textContent = '적은 내용을 모두 가계도에 반영했어요.';
-    else status.textContent = '가계도에 넣지 못한 부분이 ' + (lines.length - ok) + '곳 있어요. 아래를 확인해 주세요.';
+    else if (!bad.length && !state.choices.some(function (c) { return !c.value; })) status.textContent = '적은 내용을 모두 가계도에 반영했어요.';
+    else if (bad.length) status.textContent = '가계도에 넣지 못한 부분이 ' + bad.length + '곳 있어요. 아래를 확인해 주세요.';
+    else status.textContent = '고를 것이 남아 있어요.';
     var ul = $('issues');
     ul.innerHTML = '';
-    lines.forEach(function (l) {
-      if (l.status === 'ok') return;
-      var li = document.createElement('li');
-      li.className = l.status;
-      var q = document.createElement('q');
-      q.textContent = l.text;
-      var s = document.createElement('span');
-      s.textContent = l.hint;
-      li.appendChild(q);
-      li.appendChild(s);
+    bad.forEach(function (l) {
+      var li = el('li', { className: l.status });
+      li.appendChild(el('q', { textContent: l.text }));
+      li.appendChild(el('span', { textContent: l.hint }));
       ul.appendChild(li);
     });
   }
 
-  function personName(p) {
-    var base = P.displayName(p);
-    return p.name && p.role !== 'client' ? base + ' (' + p.label + ')' : (p.role === 'client' && p.name ? base + ' (내담자)' : base);
+  function drawChoices() {
+    var list = $('choice-list');
+    list.innerHTML = '';
+    $('choices').hidden = !state.choices.length;
+    state.choices.forEach(function (c) {
+      var card = el('div', { className: 'choice' + (c.value ? ' done' : '') });
+      card.appendChild(el('q', { textContent: c.text }));
+      card.appendChild(el('p', { className: 'choice-q', textContent: c.question }));
+      var opts = el('div', { className: 'choice-opts', role: 'group' });
+      opts.setAttribute('aria-label', c.question);
+      c.options.forEach(function (o) {
+        var b = el('button', { type: 'button', className: 'chip', textContent: o[1] });
+        b.setAttribute('aria-pressed', c.value === o[0] ? 'true' : 'false');
+        b.addEventListener('click', function () {
+          checkpoint();
+          state.answers[c.key] = o[0];
+          fromText(false);
+        });
+        opts.appendChild(b);
+      });
+      card.appendChild(opts);
+      list.appendChild(card);
+    });
   }
 
-  function select(options, value, cls) {
-    var s = document.createElement('select');
-    if (cls) s.className = cls;
+  // ── 편집 칸 ─────────────────────────────────────────────
+  function el(tag, props, kids) {
+    var e = document.createElement(tag);
+    for (var k in props || {}) {
+      if (k === 'className' || k === 'textContent' || k === 'value' || k === 'checked' || k === 'disabled' || k === 'type' || k === 'hidden') e[k] = props[k];
+      else e.setAttribute(k, props[k]);
+    }
+    (kids || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return e;
+  }
+  function field(label, input, wide) {
+    var id = 'f' + Math.random().toString(36).slice(2, 8);
+    input.id = id;
+    return el('div', { className: 'field' + (wide ? ' wide' : '') }, [el('label', { for: id, textContent: label }), input]);
+  }
+  function select(options, value, onChange) {
+    var s = el('select');
     options.forEach(function (o) {
-      var opt = document.createElement('option');
-      opt.value = o[0];
-      opt.textContent = o[1];
-      if (o[0] === value) opt.selected = true;
-      s.appendChild(opt);
+      var op = el('option', { value: o[0], textContent: o[1] });
+      if (String(o[0]) === String(value)) op.selected = true;
+      s.appendChild(op);
     });
+    s.addEventListener('change', function () { onChange(s.value); });
     return s;
   }
-
-  function delButton(label, onClick) {
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'del';
-    b.setAttribute('aria-label', label);
-    b.textContent = '×';
+  function input(type, value, onCommit, attrs) {
+    var i = el('input', Object.assign({ type: type }, attrs || {}));
+    i.value = value == null ? '' : value;
+    var before = null;
+    i.addEventListener('focus', function () { before = snapshot(); });
+    i.addEventListener('change', function () {
+      if (before) { state.undo.push(before); state.redo = []; before = null; }
+      onCommit(i.value);
+    });
+    return i;
+  }
+  function numOrNull(v, min, max) {
+    var n = parseInt(v, 10);
+    return isNaN(n) ? null : Math.max(min, Math.min(max, n));
+  }
+  function button(label, onClick, cls) {
+    var b = el('button', { type: 'button', className: cls || 'btn btn-ghost btn-sm', textContent: label });
     b.addEventListener('click', onClick);
     return b;
   }
+  function act(fn) { return function () { checkpoint(); fn(); }; }
+  function personOptions() {
+    return state.model.persons.filter(function (p) { return p.kind === 'person'; }).map(function (p) {
+      var n = F.displayName(p);
+      return [p.id, p.name && p.label ? n + ' (' + (p.client ? '내담자' : p.label) + ')' : n];
+    });
+  }
 
-  function drawHelper() {
-    var m = state.model;
-
-    // 사람
-    var people = $('people');
-    people.innerHTML = '';
+  function drawInspector() {
+    var box = $('inspector');
+    box.innerHTML = '';
+    var m = state.model, sel = state.selected;
     if (!m.persons.length) {
-      people.innerHTML = '<p class="helper-empty">아직 사람이 없어요. 문장을 적거나 사람을 더해 보세요.</p>';
+      box.appendChild(el('div', { className: 'insp-empty' }, [
+        el('p', { textContent: '문장 없이 직접 그리고 싶다면 내담자부터 더해 보세요.' }),
+        button('내담자 더하기', act(function () {
+          var c = F.addPerson(m, { client: true, label: '내담자', key: 'u:client' });
+          state.selected = { type: 'person', id: c.id };
+          changed(c);
+        }))
+      ]));
+      return;
     }
-    m.persons.forEach(function (p) {
-      var row = document.createElement('div');
-      row.className = 'row row-person';
-
-      var name = document.createElement('input');
-      name.type = 'text';
-      name.value = p.name;
-      name.placeholder = p.label || '이름';
-      name.setAttribute('aria-label', '이름');
-      name.addEventListener('input', function () { p.name = name.value.trim(); touched(false); });
-      name.addEventListener('change', function () { touched(true); });
-
-      var roleVal = p.role === 'sibling' ? 'sibling:' + (p.order === 'older' ? 'older' : 'younger') : p.role;
-      var role = select(ROLE_OPTIONS, roleVal);
-      role.setAttribute('aria-label', '관계');
-      role.addEventListener('change', function () {
-        var v = role.value.split(':');
-        p.role = v[0];
-        p.order = v[1] || null;
-        p.label = v[1] ? (v[1] === 'older' ? '손위 형제자매' : '손아래 형제자매') : P.ROLE_LABEL[v[0]];
-        if (/^(father|pgf|mgf)$/.test(p.role)) p.gender = 'M';
-        if (/^(mother|pgm|mgm)$/.test(p.role)) p.gender = 'F';
-        touched(true);
+    if (!sel) {
+      var list = el('div', { className: 'people-list' });
+      m.persons.forEach(function (p) {
+        list.appendChild(button(F.displayName(p) + (p.client ? ' · 내담자' : p.name && p.label ? ' · ' + p.label : ''), function () { select_({ type: 'person', id: p.id }); }, 'chip'));
       });
-
-      var gender = select(GENDER_OPTIONS, p.gender);
-      gender.setAttribute('aria-label', '성별');
-      gender.addEventListener('change', function () { p.gender = gender.value; touched(true); });
-
-      var age = document.createElement('input');
-      age.type = 'number';
-      age.min = '0';
-      age.max = '120';
-      age.className = 'age';
-      age.placeholder = '나이';
-      age.value = p.age == null ? '' : p.age;
-      age.setAttribute('aria-label', '나이');
-      age.addEventListener('input', function () {
-        var n = parseInt(age.value, 10);
-        p.age = isNaN(n) ? null : Math.max(0, Math.min(120, n));
-        touched(false);
+      box.appendChild(el('div', { className: 'insp-head' }, [el('h3', { textContent: '직접 고치기' }), el('p', { textContent: '가계도에서 사람이나 선을 누르거나, 아래에서 고르세요.' })]));
+      box.appendChild(el('p', { className: 'insp-label', textContent: '사람' }));
+      box.appendChild(list);
+      var lines = el('div', { className: 'people-list' });
+      m.unions.filter(function (u) { return u.a && u.b; }).forEach(function (u) {
+        lines.appendChild(button(F.displayName(F.person(m, u.a)) + ' · ' + F.displayName(F.person(m, u.b)) + ' ' + F.UNION[u.status], function () { select_({ type: 'union', id: u.id }); }, 'chip'));
       });
-
-      var deadLabel = document.createElement('label');
-      deadLabel.className = 'check';
-      var dead = document.createElement('input');
-      dead.type = 'checkbox';
-      dead.checked = p.deceased;
-      dead.addEventListener('change', function () { p.deceased = dead.checked; touched(true); });
-      deadLabel.appendChild(dead);
-      deadLabel.appendChild(document.createTextNode('사망'));
-
-      var del = delButton(P.displayName(p) + ' 지우기', function () {
-        m.persons = m.persons.filter(function (q) { return q !== p; });
-        m.relations = m.relations.filter(function (r) { return r.a !== p.id && r.b !== p.id; });
-        touched(true);
+      m.relations.forEach(function (r) {
+        lines.appendChild(button(F.displayName(F.person(m, r.a)) + (F.REL[r.type].dir ? ' → ' : ' ↔ ') + F.displayName(F.person(m, r.b)) + ' ' + F.REL[r.type].label, function () { select_({ type: 'rel', id: r.id }); }, 'chip'));
       });
-
-      [name, role, gender, age, deadLabel, del].forEach(function (el) { row.appendChild(el); });
-      people.appendChild(row);
-    });
-
-    // 부부 관계
-    var unions = $('unions');
-    unions.innerHTML = '';
-    var anyUnion = false;
-    Object.keys(UNION_ROLES).forEach(function (key) {
-      var rs = UNION_ROLES[key];
-      if (!P.findRole(m, rs[0]) || !P.findRole(m, rs[1])) return;
-      anyUnion = true;
-      var row = document.createElement('div');
-      row.className = 'row row-union';
-      var label = document.createElement('span');
-      label.textContent = UNION_NAMES[key];
-      var s = select(Object.keys(P.UNION_LABEL).map(function (k) { return [k, P.UNION_LABEL[k]]; }), m.unions[key] || 'married');
-      s.setAttribute('aria-label', UNION_NAMES[key] + ' 부부 관계');
-      s.addEventListener('change', function () { m.unions[key] = s.value; touched(true); });
-      row.appendChild(label);
-      row.appendChild(s);
-      unions.appendChild(row);
-    });
-    $('unions-wrap').hidden = !anyUnion;
-
-    // 정서적 관계
-    var rels = $('relations');
-    rels.innerHTML = '';
-    var personOpts = m.persons.map(function (p) { return [p.id, personName(p)]; });
-    var relOpts = REL_OPTIONS.map(function (t) { return [t, P.REL_LABEL[t]]; });
-    if (!m.relations.length) rels.innerHTML = '<p class="helper-empty">아직 그려진 관계가 없어요.</p>';
-    m.relations.forEach(function (r) {
-      var row = document.createElement('div');
-      row.className = 'row row-relation';
-      var a = select(personOpts, r.a);
-      var t = select(relOpts, r.type);
-      var b = select(personOpts, r.b);
-      a.setAttribute('aria-label', '첫째 사람');
-      t.setAttribute('aria-label', '관계 종류');
-      b.setAttribute('aria-label', '둘째 사람');
-      a.addEventListener('change', function () { r.a = a.value; touched(true); });
-      t.addEventListener('change', function () { r.type = t.value; touched(true); });
-      b.addEventListener('change', function () { r.b = b.value; touched(true); });
-      var del = delButton('이 관계 지우기', function () {
-        m.relations = m.relations.filter(function (q) { return q !== r; });
-        touched(true);
-      });
-      [a, t, b, del].forEach(function (el) { row.appendChild(el); });
-      rels.appendChild(row);
-    });
-    $('add-relation').hidden = m.persons.length < 2;
-  }
-
-  // 직접 고친 경우
-  function touched(rebuild) {
-    if (!state.edited) {
-      state.edited = true;
-      $('edited-banner').hidden = false;
+      if (lines.children.length) {
+        box.appendChild(el('p', { className: 'insp-label', textContent: '부부·관계선' }));
+        box.appendChild(lines);
+      }
+      return;
     }
-    drawChart();
-    if (rebuild) drawHelper();
+    if (sel.type === 'person') personForm(box, F.person(m, sel.id));
+    else if (sel.type === 'rel') relForm(box, m.relations.filter(function (r) { return r.id === sel.id; })[0]);
+    else if (sel.type === 'union') unionForm(box, F.union(m, sel.id));
+    else if (sel.type === 'link') linkForm(box, m.links.filter(function (l) { return l.id === sel.id; })[0]);
   }
 
-  // ── 문장 → 가계도 ───────────────────────────────────────
-  function fromText() {
-    state.model = P.parse(text.value);
-    state.edited = false;
-    $('edited-banner').hidden = true;
-    drawChart();
-    drawFeedback();
-    drawHelper();
+  function head(box, title, sub) {
+    var close = button('닫기', function () { select_(null); }, 'btn-text');
+    box.appendChild(el('div', { className: 'insp-head' }, [el('h3', { textContent: title }), sub ? el('p', { textContent: sub }) : null, close]));
   }
 
-  var timer = null;
+  function personForm(box, p) {
+    if (!p) return;
+    var m = state.model;
+    head(box, F.displayName(p), p.client ? '내담자' : p.label || '');
+    var grid = el('div', { className: 'form-grid' });
+    grid.appendChild(field('이름', input('text', p.name, function (v) { p.name = v.trim().slice(0, 20); changed(p); }, { maxlength: 20, placeholder: '가명이나 머리글자' })));
+    grid.appendChild(field('관계 이름', input('text', p.label, function (v) { p.label = v.trim().slice(0, 20); changed(p); }, { maxlength: 20, placeholder: '예: 고모, 새아버지' })));
+    grid.appendChild(field('종류', select(Object.keys(F.KIND).map(function (k) { return [k, F.KIND[k]]; }), p.kind, function (v) {
+      checkpoint();
+      p.kind = v;
+      if (v === 'pet' && !p.owner) { var c = F.clientOf(m); p.owner = c && c.id !== p.id ? c.id : null; }
+      changed(p);
+    })));
+    grid.appendChild(field('성별', select([['M', '남성'], ['F', '여성'], ['U', '모름·기타']], p.gender, function (v) { checkpoint(); p.gender = v; changed(p); })));
+    grid.appendChild(field('성별 표현(선택)', input('text', p.genderLabel, function (v) { p.genderLabel = v.trim().slice(0, 12); changed(p); }, { maxlength: 12, placeholder: '예: 논바이너리' })));
+    grid.appendChild(field('나이', input('number', p.age, function (v) { p.age = numOrNull(v, 0, 120); changed(p); }, { min: 0, max: 120 })));
+    grid.appendChild(field(p.kind === 'person' || p.kind === 'pet' ? '출생 연도' : '연도', input('number', p.birthYear, function (v) { p.birthYear = numOrNull(v, 1850, 2100); changed(p); }, { min: 1850, max: 2100 })));
+    grid.appendChild(field('사망 연도', input('number', p.deathYear, function (v) { p.deathYear = numOrNull(v, 1850, 2100); if (p.deathYear) p.deceased = true; changed(p); }, { min: 1850, max: 2100 })));
+    grid.appendChild(field('정보 출처', select([['', '표시 안 함'], ['내담자 진술', '내담자 진술'], ['가족 진술', '가족 진술'], ['기관 기록', '기관 기록'], ['확인됨', '확인됨']], p.source, function (v) { checkpoint(); p.source = v; changed(p); })));
+    grid.appendChild(field('메모', input('text', p.note, function (v) { p.note = v.trim().slice(0, 30); changed(p); }, { maxlength: 30, placeholder: '짧게, 실명·주민번호는 적지 마세요' }), true));
+    box.appendChild(grid);
+
+    var checks = el('div', { className: 'checks' });
+    var dead = el('input', { type: 'checkbox', checked: p.deceased });
+    dead.addEventListener('change', act(function () { p.deceased = dead.checked; if (!dead.checked) p.deathYear = null; changed(p); }));
+    checks.appendChild(el('label', {}, [dead, ' 사망']));
+    var house = el('input', { type: 'checkbox', checked: m.household.indexOf(p.id) >= 0 });
+    house.addEventListener('change', act(function () {
+      if (house.checked) m.household.push(p.id); else m.household = m.household.filter(function (id) { return id !== p.id; });
+      changed(p);
+    }));
+    checks.appendChild(el('label', {}, [house, ' 함께 사는 가족']));
+    box.appendChild(checks);
+
+    // 더하기
+    var add = el('div', { className: 'insp-actions' });
+    add.appendChild(el('p', { className: 'insp-label', textContent: F.displayName(p) + ' 기준으로 더하기' }));
+    var parents = F.parentsOf(m, p.id);
+    var hasF = parents.some(function (q) { return q.gender === 'M'; }), hasM = parents.some(function (q) { return q.gender === 'F'; });
+    var full = parents.length >= 2;
+    var pre = p.client ? '' : F.displayName(p) + '의 ';
+    var bF = button('+ 아버지', act(function () { var q = F.parentOf(m, p.id, 'M', { label: pre + '아버지', key: 'u:' + Date.now() }, true); pick(q); }));
+    bF.disabled = hasF || full;
+    var bM = button('+ 어머니', act(function () { var q = F.parentOf(m, p.id, 'F', { label: pre + '어머니', key: 'u:' + Date.now() }, true); pick(q); }));
+    bM.disabled = hasM || full;
+    add.appendChild(bF); add.appendChild(bM);
+    add.appendChild(button('+ 형제자매', act(function () {
+      var u = F.ensureParentUnion(m, p.id);
+      var q = F.addPerson(m, { label: pre + '형제자매', key: 'u:' + Date.now() });
+      F.addLink(m, u.id, q.id, 'bio');
+      pick(q);
+    })));
+    add.appendChild(button('+ 배우자·파트너', act(function () {
+      var q = F.addPerson(m, { label: pre + '배우자', gender: p.gender === 'M' ? 'F' : p.gender === 'F' ? 'M' : 'U', key: 'u:' + Date.now() });
+      F.addUnion(m, p.id, q.id, 'married');
+      pick(q);
+    })));
+    add.appendChild(button('+ 자녀', act(function () {
+      var u = F.childUnion(m, p.id);
+      var q = F.addPerson(m, { label: pre + '자녀', key: 'u:' + Date.now() });
+      F.addLink(m, u.id, q.id, 'bio');
+      pick(q);
+    })));
+    add.appendChild(button('+ 반려동물', act(function () {
+      var q = F.addPerson(m, { kind: 'pet', owner: p.id, label: '반려동물', key: 'u:' + Date.now() });
+      pick(q);
+    })));
+    box.appendChild(add);
+
+    // 관계선 더하기
+    var others = personOptions().filter(function (o) { return o[0] !== p.id; });
+    if (others.length) {
+      var rel = el('div', { className: 'insp-actions rel-add' });
+      rel.appendChild(el('p', { className: 'insp-label', textContent: '관계선 더하기' }));
+      var target = select(others, others[0][0], function () {});
+      var type = select(Object.keys(F.REL).map(function (k) { return [k, F.REL[k].label]; }), 'close', function () {});
+      target.setAttribute('aria-label', '상대');
+      type.setAttribute('aria-label', '관계 종류');
+      rel.appendChild(target); rel.appendChild(type);
+      rel.appendChild(button('더하기', act(function () {
+        var r = F.addRelation(m, p.id, target.value, type.value, { sub: type.value === 'abuse' ? 'physical' : null });
+        if (r) { r.edited = true; state.selected = { type: 'rel', id: r.id }; }
+        changed();
+      }), 'btn btn-ink btn-sm'));
+      box.appendChild(rel);
+    }
+
+    var tail = el('div', { className: 'insp-tail' });
+    if (!p.client && p.kind === 'person') tail.appendChild(button('내담자로 지정', act(function () {
+      m.persons.forEach(function (q) { q.client = false; });
+      p.client = true;
+      changed(p);
+    }), 'btn-text'));
+    if (p.dx) tail.appendChild(button('자리 되돌리기', act(function () { p.dx = 0; changed(); }), 'btn-text'));
+    tail.appendChild(button('이 사람 지우기', act(function () {
+      personKeys(p).forEach(function (k) { state.deleted[k] = 1; });
+      F.removePerson(m, p.id);
+      state.selected = null;
+      changed();
+    }), 'btn-text danger'));
+    box.appendChild(tail);
+  }
+
+  function pick(q) { q.edited = true; state.selected = { type: 'person', id: q.id }; changed(q); }
+
+  function relForm(box, r) {
+    if (!r) return;
+    var m = state.model;
+    var a = F.person(m, r.a), b = F.person(m, r.b);
+    head(box, F.REL[r.type].label, F.displayName(a) + (F.REL[r.type].dir ? ' → ' : ' ↔ ') + F.displayName(b));
+    var grid = el('div', { className: 'form-grid' });
+    grid.appendChild(field('종류', select(Object.keys(F.REL).map(function (k) { return [k, F.REL[k].label]; }), r.type, function (v) {
+      checkpoint(); r.type = v; if (v === 'abuse' && !r.sub) r.sub = 'physical'; changed(r);
+    })));
+    if (r.type === 'abuse') grid.appendChild(field('학대 유형', select(Object.keys(F.ABUSE_SUB).map(function (k) { return [k, F.ABUSE_SUB[k]]; }), r.sub, function (v) { checkpoint(); r.sub = v; changed(r); })));
+    var opts = personOptions();
+    grid.appendChild(field(F.REL[r.type].dir ? '하는 사람' : '한쪽', select(opts, r.a, function (v) { checkpoint(); r.a = v; changed(r); })));
+    grid.appendChild(field(F.REL[r.type].dir ? '받는 사람' : '다른 쪽', select(opts, r.b, function (v) { checkpoint(); r.b = v; changed(r); })));
+    grid.appendChild(field('메모', input('text', r.note, function (v) { r.note = v.trim().slice(0, 20); changed(r); }, { maxlength: 20, placeholder: '예: 진술, 2023년부터' }), true));
+    box.appendChild(grid);
+    var checks = el('div', { className: 'checks' });
+    var tent = el('input', { type: 'checkbox', checked: r.tentative });
+    tent.addEventListener('change', act(function () { r.tentative = tent.checked; changed(r); }));
+    checks.appendChild(el('label', {}, [tent, ' 확인 필요로 표시']));
+    box.appendChild(checks);
+    var tail = el('div', { className: 'insp-tail' });
+    if (F.REL[r.type].dir) tail.appendChild(button('방향 바꾸기', act(function () { var t = r.a; r.a = r.b; r.b = t; changed(r); }), 'btn-text'));
+    tail.appendChild(button('이 선 지우기', act(function () {
+      state.deleted['r:' + relKey(m, r)] = 1;
+      m.relations = m.relations.filter(function (x) { return x !== r; });
+      state.selected = null;
+      changed();
+    }), 'btn-text danger'));
+    box.appendChild(tail);
+  }
+
+  function unionForm(box, u) {
+    if (!u) return;
+    var m = state.model;
+    head(box, '부부·파트너 관계', F.displayName(F.person(m, u.a)) + ' · ' + F.displayName(F.person(m, u.b)));
+    var grid = el('div', { className: 'form-grid' });
+    grid.appendChild(field('상태', select(Object.keys(F.UNION).map(function (k) { return [k, F.UNION[k]]; }), u.status, function (v) { checkpoint(); u.status = v; changed(u); })));
+    grid.appendChild(field(u.status === 'cohabit' ? '동거 시작 연도' : '결혼 연도', input('number', u.start, function (v) { u.start = numOrNull(v, 1850, 2100); changed(u); }, { min: 1850, max: 2100 })));
+    if (u.status === 'divorced' || u.status === 'separated' || u.end) grid.appendChild(field(u.status === 'separated' ? '별거 연도' : u.status === 'divorced' ? '이혼 연도' : '끝난 연도', input('number', u.end, function (v) { u.end = numOrNull(v, 1850, 2100); changed(u); }, { min: 1850, max: 2100 })));
+    box.appendChild(grid);
+    var tail = el('div', { className: 'insp-tail' });
+    tail.appendChild(button('좌우 바꾸기', act(function () {
+      // 덩어리 안 순서는 결합 순서와 성별로 정해지므로, 두 사람 자리만 맞바꾼다
+      var A = F.person(m, u.a), B = F.person(m, u.b);
+      var pos = window.GenogramLayout.layout(m).pos;
+      var d = pos[B.id].x - pos[A.id].x;
+      A.dx = (A.dx || 0) + d;
+      B.dx = (B.dx || 0) - d;
+      changed(u);
+    }), 'btn-text'));
+    var kids = F.childrenOf(m, u.id).length;
+    var del = button('이 관계 지우기', act(function () {
+      m.unions = m.unions.filter(function (x) { return x !== u; });
+      state.selected = null;
+      changed();
+    }), 'btn-text danger');
+    if (kids) { del.disabled = true; del.title = '자녀가 있는 관계는 지울 수 없어요. 상태를 바꿔 주세요.'; }
+    tail.appendChild(del);
+    if (kids) tail.appendChild(el('span', { className: 'insp-note', textContent: '자녀가 있는 관계는 지우지 않고 상태를 바꿔 주세요.' }));
+    box.appendChild(tail);
+  }
+
+  function linkForm(box, l) {
+    if (!l) return;
+    var m = state.model, child = F.person(m, l.child), u = F.union(m, l.union);
+    head(box, '부모-자녀 연결', F.displayName(child));
+    var grid = el('div', { className: 'form-grid' });
+    grid.appendChild(field('종류', select(Object.keys(F.LINK).map(function (k) { return [k, F.LINK[k]]; }), l.type, function (v) { checkpoint(); l.type = v; changed(l); })));
+    var unionOpts = m.unions.filter(function (x) { return x.a || x.b; }).map(function (x) {
+      return [x.id, [x.a, x.b].map(function (id) { return id ? F.displayName(F.person(m, id)) : '모름'; }).join(' · ')];
+    });
+    grid.appendChild(field('부모', select(unionOpts, l.union, function (v) { checkpoint(); l.union = v; F.cleanup(m); changed(l); })));
+    var sibs = F.childrenOf(m, l.union).filter(function (s) { return s.id !== l.child; });
+    if (sibs.length) {
+      var cur = sibs.filter(function (s) { var sl = F.linkOf(m, s.id); return l.twin && sl.twin === l.twin; })[0];
+      grid.appendChild(field('쌍둥이', select([['', '아님']].concat(sibs.map(function (s) { return [s.id, F.displayName(s) + '와 쌍둥이']; })), cur ? cur.id : '', function (v) {
+        checkpoint();
+        if (l.twin) m.links.forEach(function (x) { if (x.twin === l.twin && x !== l) { var others = m.links.filter(function (y) { return y.twin === l.twin; }); if (others.length <= 2) x.twin = null; } });
+        l.twin = null; l.identical = false;
+        if (v) { var sl = F.linkOf(m, v); var tg = sl.twin || 't' + l.id; l.twin = sl.twin = tg; }
+        changed(l);
+      })));
+    }
+    box.appendChild(grid);
+    if (l.twin) {
+      var checks = el('div', { className: 'checks' });
+      var idc = el('input', { type: 'checkbox', checked: l.identical });
+      idc.addEventListener('change', act(function () { m.links.forEach(function (x) { if (x.twin === l.twin) x.identical = idc.checked; }); changed(l); }));
+      checks.appendChild(el('label', {}, [idc, ' 일란성']));
+      box.appendChild(checks);
+    }
+    void u;
+  }
+
+  function select_(sel) {
+    state.selected = sel;
+    drawChart();
+    drawInspector();
+    if (sel) {
+      var box = $('inspector');
+      var r = box.getBoundingClientRect();
+      if (r.top > window.innerHeight - 80) box.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
+    }
+  }
+
+  // ── 가계도 누르기·끌기 ──────────────────────────────────
+  var drag = null;
+  $('chart').addEventListener('pointerdown', function (e) {
+    var g = e.target.closest('[data-kind]');
+    if (!g) { if (state.selected && e.target.closest('svg')) select_(null); return; }
+    var svg = $('chart').querySelector('svg');
+    drag = { g: g, kind: g.getAttribute('data-kind'), id: g.getAttribute('data-id'), x0: e.clientX, y0: e.clientY, moved: false, svg: svg };
+    if (drag.kind === 'person') { try { g.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ } }
+  });
+  $('chart').addEventListener('pointermove', function (e) {
+    if (!drag || drag.kind !== 'person') return;
+    var dxPx = e.clientX - drag.x0;
+    if (!drag.moved && Math.abs(dxPx) < 5) return;
+    drag.moved = true;
+    var ctm = drag.svg.getScreenCTM();
+    drag.dx = dxPx / (ctm ? ctm.a : 1);
+    drag.g.setAttribute('transform', 'translate(' + drag.dx + ' 0)');
+    drag.g.classList.add('dragging');
+  });
+  function endDrag() {
+    if (!drag) return;
+    var d = drag;
+    drag = null;
+    if (d.kind === 'person' && d.moved) {
+      checkpoint();
+      var p = F.person(state.model, d.id);
+      p.dx = (p.dx || 0) + d.dx;
+      state.selected = { type: 'person', id: p.id };
+      changed();
+    } else select_({ type: d.kind, id: d.id });
+  }
+  $('chart').addEventListener('pointerup', endDrag);
+  $('chart').addEventListener('pointercancel', function () { drag = null; drawChart(); });
+  $('chart').addEventListener('keydown', function (e) {
+    var g = e.target.closest && e.target.closest('[data-kind]');
+    if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select_({ type: g.getAttribute('data-kind'), id: g.getAttribute('data-id') }); }
+  });
+
+  // ── 입력·버튼 ───────────────────────────────────────────
+  var timer = null, typingSnap = null;
+  text.addEventListener('focus', function () { typingSnap = snapshot(); });
   text.addEventListener('input', function () {
-    if (state.edited) return;
     clearTimeout(timer);
-    timer = setTimeout(fromText, 220);
+    timer = setTimeout(function () {
+      if (typingSnap) { state.undo.push(typingSnap); state.redo = []; typingSnap = snapshot(); }
+      fromText(false);
+    }, 250);
   });
-
-  $('reparse').addEventListener('click', fromText);
-
-  $('clear-text').addEventListener('click', function () {
+  $('reparse').addEventListener('click', act(function () { fromText(true); }));
+  $('clear-text').addEventListener('click', act(function () {
     text.value = '';
-    fromText();
+    state.answers = {};
+    fromText(true);
     text.focus();
+  }));
+  $('undo').addEventListener('click', undo);
+  $('redo').addEventListener('click', redo);
+  document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+    var k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
   });
+
+  function toggle(id, key) {
+    var b = $(id);
+    b.addEventListener('click', function () {
+      state.settings[key] = !state.settings[key];
+      b.setAttribute('aria-pressed', state.settings[key] ? 'true' : 'false');
+      drawChart();
+    });
+  }
+  toggle('opt-mono', 'mono');
+  toggle('opt-gen', 'generations');
+  toggle('opt-legend', 'legend');
 
   function loadExample() {
+    checkpoint();
     text.value = EXAMPLE.join('\n');
-    fromText();
-    var make = $('make');
-    make.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    state.answers = {};
+    fromText(true);
+    $('make').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }
   document.addEventListener('click', function (e) {
     var t = e.target.closest('[data-load-example]');
     if (t) loadExample();
   });
 
-  $('add-person').addEventListener('click', function () {
-    var m = state.model;
-    if (!P.findRole(m, 'client')) P.addPerson(m, 'client', {});
-    else P.addPerson(m, 'sibling', { order: 'younger', label: '손아래 형제자매' });
-    $('helper').open = true;
-    touched(true);
-    var inputs = $('people').querySelectorAll('input[type=text]');
-    if (inputs.length) inputs[inputs.length - 1].focus();
-  });
-
-  $('add-relation').addEventListener('click', function () {
-    var m = state.model;
-    if (m.persons.length < 2) return;
-    var a = P.findRole(m, 'client') || m.persons[0];
-    var b = m.persons.filter(function (p) { return p !== a; })[0];
-    m.relations.push({ a: a.id, b: b.id, type: 'close' });
-    touched(true);
-  });
-
   function busy(btn, fn) {
-    if (!state.graphic) return;
+    var g = graphic(true);
+    if (!g) return;
     var label = btn.textContent;
     btn.disabled = true;
     btn.textContent = '만드는 중…';
-    fn(state.graphic).catch(function (err) {
+    fn(g).catch(function (err) {
       $('parse-status').textContent = err.message || '내려받기를 만들지 못했어요. 다시 눌러 주세요.';
     }).then(function () {
       btn.disabled = false;
@@ -306,36 +648,5 @@
   $('dl-png').addEventListener('click', function () { busy(this, X.png); });
   $('dl-pdf').addEventListener('click', function () { busy(this, X.pdf); });
 
-  // ── 첫 화면 예시: 문장이 하나씩 읽히며 가계도가 자란다 ──
-  (function demo() {
-    var list = $('demo-lines'), box = $('demo-chart');
-    if (!list || !box) return;
-    EXAMPLE.forEach(function (s) {
-      var li = document.createElement('li');
-      li.textContent = s;
-      list.appendChild(li);
-    });
-    var items = list.children;
-    var still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    function show(n) {
-      var g = R.render(P.parse(EXAMPLE.slice(0, n).join('\n')), { legend: false });
-      box.innerHTML = g ? g.svg : '';
-      for (var i = 0; i < items.length; i++) {
-        items[i].classList.toggle('on', i < n);
-        items[i].classList.toggle('now', i === n - 1 && n < items.length);
-      }
-    }
-    if (still) { show(EXAMPLE.length); return; }
-    var n = 0;
-    show(0);
-    function step() {
-      n++;
-      show(n);
-      if (n < EXAMPLE.length) setTimeout(step, 900);
-    }
-    setTimeout(step, 500);
-  })();
-
-  drawHelper();
+  drawAll();
 })();

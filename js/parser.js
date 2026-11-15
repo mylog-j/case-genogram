@@ -553,9 +553,9 @@
       others.forEach(function (o) {
         var from = first, to = o;
         if (passive || fearful) { from = o; to = first; }
-        var type = relType;
+        var type = relType, key = null;
         if (ambig) {
-          var key = 'rel|' + ambig[2] + '|' + [first.key || first.id, o.key || o.id].join('~');
+          key = 'rel|' + ambig[2] + '|' + [first.key || first.id, o.key || o.id].join('~');
           var value = self.choose({
             key: key, kind: 'relation', text: text,
             question: F.displayName(first) + ' ↔ ' + F.displayName(o) + '의 관계를 골라 주세요',
@@ -566,7 +566,7 @@
           if (value === 'none') { self.effects++; return; }
           type = value;
         }
-        if (F.addRelation(m, from.id, to.id, type, { sub: type === 'abuse' ? (sub || 'physical') : null, note: note, tentative: tentative })) self.effects++;
+        if (F.addRelation(m, from.id, to.id, type, { sub: type === 'abuse' ? (sub || 'physical') : null, note: note, tentative: tentative, key: key })) self.effects++;
       });
     }
 
