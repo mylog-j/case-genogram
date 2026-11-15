@@ -10,10 +10,12 @@
   var FONT = "'IBM Plex Sans KR','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif";
   var INK = '#2B2724', MUTED = '#77706A', PAPER = '#FFFFFF', HOUSE = '#5B8A69', SEL = '#E8877D', FAINT = '#ADA59D';
 
+  var GREEN = '#24874F', RED = '#D93A2B', BLUE = '#2F5FD0', PURPLE = '#7454C2', BROWN = '#C47A30', TEAL = '#2A7C8E';
   var REL_COLOR = {
-    close: '#4F8A63', fused: '#6E5FA8', conflict: '#D2554B', hostile: '#A3201F', distant: '#8F8780',
-    cutoff: '#3D3835', closeConflict: '#C0623E', fusedConflict: '#8C4F9E', abuse: '#A3201F',
-    control: '#6E5FA8', focus: '#C0623E', care: '#3F7C8C', oneSided: '#4F8A63'
+    close: GREEN, oneSided: GREEN, fused: RED, conflict: RED, conflictDark: '#8E1F16', hostile: RED, distant: INK,
+    cutoff: RED, closeConflict: GREEN, fusedConflict: RED,
+    'abuse:violence': RED, 'abuse:body': BLUE, 'abuse:emotion': PURPLE,
+    care: GREEN, control: BROWN, focus: BROWN, cohabit: TEAL
   };
 
   function esc(s) {
@@ -64,7 +66,7 @@
     if (p.age != null && p.kind === 'person') out.push(text(x, y + 5, p.age, { 'font-size': 15, 'font-weight': 600 }));
     if (p.deceased || p.kind === 'miscarriage' || p.kind === 'abortion' || p.kind === 'stillbirth') {
       var e = h + (p.kind === 'person' ? 4 : 3);
-      out.push(path('M' + r(x - e) + ' ' + r(y - e) + 'L' + r(x + e) + ' ' + r(y + e) + 'M' + r(x + e) + ' ' + r(y - e) + 'L' + r(x - e) + ' ' + r(y + e), { 'stroke-linecap': 'round' }));
+      out.push(path('M' + r(x - e) + ' ' + r(y - e) + 'L' + r(x + e) + ' ' + r(y + e) + 'M' + r(x + e) + ' ' + r(y - e) + 'L' + r(x - e) + ' ' + r(y + e)));
     }
     if (p.kind === 'abortion') out.push(line(x - h, y + h + 5, x + h, y + h + 5));
 
@@ -154,55 +156,70 @@
     p = qp(q, t1);
     return d + 'L' + r(p.x) + ' ' + r(p.y);
   }
-  function arrow(q, c) {
-    var end = q.p2, t = qt(q, 1), w = 7, l = 14;
-    var bx = end.x - t.x * l, by = end.y - t.y * l;
-    return '<path d="M' + r(end.x) + ' ' + r(end.y) + 'L' + r(bx - t.y * w) + ' ' + r(by + t.x * w) + 'L' + r(bx + t.y * w) + ' ' + r(by - t.x * w) + 'Z" fill="' + c + '"/>';
+  // 끝이 둥글지 않은 선 (자른 끝, 뾰족한 꺾임)
+  var SHARP = { 'stroke-linecap': 'butt', 'stroke-linejoin': 'miter', 'stroke-miterlimit': 6 };
+  var AL = 18, AW = 9; // 화살표 길이·반폭
+
+  // 화살표 끝부분만큼 곡선을 줄인다 (선이 화살촉 밖으로 삐져나오지 않게)
+  function trimEnd(q, len, atStart) {
+    var t = qt(q, atStart ? 0 : 1);
+    var nq = { p0: q.p0, c: q.c, p2: q.p2 };
+    if (atStart) nq.p0 = { x: q.p0.x + t.x * len, y: q.p0.y + t.y * len };
+    else nq.p2 = { x: q.p2.x - t.x * len, y: q.p2.y - t.y * len };
+    return nq;
+  }
+  function arrowHead(q, c, atStart) {
+    var tip = atStart ? q.p0 : q.p2, t = qt(q, atStart ? 0 : 1);
+    if (atStart) t = { x: -t.x, y: -t.y };
+    var bx = tip.x - t.x * AL, by = tip.y - t.y * AL;
+    return '<path d="M' + r(tip.x) + ' ' + r(tip.y) + 'L' + r(bx - t.y * AW) + ' ' + r(by + t.x * AW) + 'L' + r(bx + t.y * AW) + ' ' + r(by - t.x * AW) + 'Z" fill="' + c + '"/>';
   }
   function midLabel(q, s, c) {
     var p = qp(q, 0.5);
-    return text(p.x, p.y - 7, s, halo({ 'font-size': 11, 'font-weight': 600, fill: c }));
+    return text(p.x, p.y - 9, s, halo({ 'font-size': 11, 'font-weight': 600, fill: c }));
+  }
+  function relColor(rel, color) {
+    if (rel.type === 'abuse') return color('abuse:' + (F.ABUSE_GROUP[rel.sub] || 'violence'));
+    return color(rel.type);
   }
 
+  // 보내 주신 관계선 범례 기준
   function relationSvg(rel, q, color) {
-    var c = color(rel.type), base = { 'stroke-linecap': 'round', stroke: c }, out = [], d = qd(q);
-    var t = rel.type;
-    function dbl(width) {
-      out.push(path(d, Object.assign({}, base, { 'stroke-width': width })));
-      out.push(path(d, { stroke: PAPER, 'stroke-width': width - 4.4, 'stroke-linecap': 'round' }));
-    }
-    if (t === 'close' || t === 'oneSided') dbl(7);
-    else if (t === 'fused') {
-      out.push(path(d, Object.assign({}, base, { 'stroke-width': 11 })));
-      out.push(path(d, { stroke: PAPER, 'stroke-width': 7, 'stroke-linecap': 'round' }));
-      out.push(path(d, Object.assign({}, base, { 'stroke-width': 2.4 })));
-    } else if (t === 'conflict') out.push(path(zig(q, 5), Object.assign({}, base, { 'stroke-linejoin': 'round' })));
-    else if (t === 'hostile') {
-      out.push(path(zig(offset(q, 3.2), 5), Object.assign({}, base, { 'stroke-width': 2.4, 'stroke-linejoin': 'round' })));
-      out.push(path(zig(offset(q, -3.2), 5), Object.assign({}, base, { 'stroke-width': 2.4, 'stroke-linejoin': 'round' })));
-    } else if (t === 'distant') out.push(path(d, Object.assign({}, base, { 'stroke-dasharray': '3 6' })));
+    var t = rel.type, c = relColor(rel, color), out = [];
+    var dir = F.REL[t] && F.REL[t].dir;
+    var body = q;
+    if (dir) { body = trimEnd(body, AL - 1, false); if (rel.mutual) body = trimEnd(body, AL - 1, true); }
+    var d = qd(body);
+    function st(o) { return Object.assign({ stroke: c, 'stroke-width': 2 }, SHARP, o || {}); }
+    function lines(offsets, o) { offsets.forEach(function (k) { out.push(path(qd(offset(body, k)), st(o))); }); }
+
+    if (t === 'close' || t === 'oneSided') lines([-3, 3]);
+    else if (t === 'fused') lines([-5, 0, 5]);
+    else if (t === 'conflict') out.push(path(zig(body, 6), st({ 'stroke-width': 2.2 })));
+    else if (t === 'hostile') out.push(path(zig(body, 7), st({ 'stroke-width': 4.2 })));
+    else if (t === 'distant') out.push(path(d, st({ 'stroke-dasharray': '7 6' })));
     else if (t === 'cutoff') {
-      out.push(path(d, base));
-      var mid = qp(q, 0.5), tg = qt(q, 0.5);
-      out.push('<circle cx="' + r(mid.x) + '" cy="' + r(mid.y) + '" r="9" fill="' + PAPER + '"/>');
-      [0.44, 0.56].forEach(function (tt) {
-        var m = qp(q, tt);
-        out.push(line(m.x - tg.y * 9, m.y + tg.x * 9, m.x + tg.y * 9, m.y - tg.x * 9, Object.assign({}, base, { 'stroke-width': 2.4 })));
+      out.push(path(d, st({ 'stroke-dasharray': '7 6' })));
+      var tg = qt(body, 0.5);
+      [0.46, 0.54].forEach(function (tt) {
+        var m = qp(body, tt);
+        out.push('<circle cx="' + r(m.x) + '" cy="' + r(m.y) + '" r="4" fill="' + PAPER + '"/>');
+        out.push(line(m.x - tg.y * 10, m.y + tg.x * 10, m.x + tg.y * 10, m.y - tg.x * 10, st({ 'stroke-width': 2.6 })));
       });
     } else if (t === 'closeConflict') {
-      dbl(7);
-      out.push(path(zig(q, 6, 0.2, 0.8), Object.assign({}, base, { 'stroke-width': 1.8, 'stroke-linejoin': 'round' })));
+      lines([-3, 3]);
+      out.push(path(zig(body, 7, 0.25, 0.75), st({ stroke: color('conflict'), 'stroke-width': 1.8 })));
     } else if (t === 'fusedConflict') {
-      out.push(path(d, Object.assign({}, base, { 'stroke-width': 11 })));
-      out.push(path(d, { stroke: PAPER, 'stroke-width': 7, 'stroke-linecap': 'round' }));
-      out.push(path(d, Object.assign({}, base, { 'stroke-width': 2.4 })));
-      out.push(path(zig(q, 8, 0.2, 0.8), Object.assign({}, base, { 'stroke-width': 1.8, 'stroke-linejoin': 'round' })));
-    } else if (t === 'abuse') out.push(path(zig(q, 5), Object.assign({}, base, { 'stroke-width': 2.4, 'stroke-linejoin': 'round' })));
-    else if (t === 'control') out.push(path(d, Object.assign({}, base, { 'stroke-width': 2.4 })));
-    else if (t === 'focus') out.push(path(d, Object.assign({}, base, { 'stroke-width': 2.2, 'stroke-dasharray': '8 5' })));
-    else if (t === 'care') out.push(path(d, Object.assign({}, base, { 'stroke-width': 2.4 })));
-    if (F.REL[t] && F.REL[t].dir) {
-      out.push(arrow(q, c));
+      lines([-5, 0, 5]);
+      out.push(path(zig(body, 9, 0.25, 0.75), st({ stroke: color('conflictDark'), 'stroke-width': 1.8 })));
+    } else if (t === 'abuse') {
+      var grp = F.ABUSE_GROUP[rel.sub] || 'violence';
+      out.push(path(zig(body, 6), st({ 'stroke-width': 2.4, 'stroke-dasharray': grp === 'emotion' ? '3 3' : null })));
+    } else if (t === 'control' || t === 'focus' || t === 'care') out.push(path(d, st({ 'stroke-width': 2.6 })));
+
+    if (dir) {
+      out.push(arrowHead(q, c, false));
+      if (rel.mutual) out.push(arrowHead(q, c, true));
       var lab = t === 'abuse' ? (F.ABUSE_SUB[rel.sub] || '') : t === 'control' ? '통제' : t === 'focus' ? '초점' : t === 'care' ? '돌봄' : '애착';
       if (lab) out.push(midLabel(q, lab, c));
     }
@@ -282,11 +299,12 @@
     ['M', 'F', 'U'].forEach(function (g) { if (used.gender[g]) items.push(['g', g]); });
     if (used.dead) items.push(['dead']);
     Object.keys(used.kind).forEach(function (k) { items.push(['kind', k]); });
-    Object.keys(used.union).forEach(function (s) { if (s !== 'married') items.push(['union', s]); });
-    Object.keys(used.link).forEach(function (t) { if (t !== 'bio') items.push(['link', t]); });
+    ['married', 'cohabit', 'separated', 'divorced'].forEach(function (s) { if (used.union[s]) items.push(['union', s]); });
+    ['adopted', 'foster', 'unknown'].forEach(function (t) { if (used.link[t]) items.push(['link', t]); });
     if (used.twin) items.push(['twin']);
     if (used.house) items.push(['house']);
-    Object.keys(F.REL).forEach(function (t) { if (used.rel[t]) items.push(['rel', t]); });
+    ['close', 'oneSided', 'fused', 'distant', 'cutoff', 'conflict', 'hostile', 'closeConflict', 'fusedConflict',
+      'abuse:violence', 'abuse:body', 'abuse:emotion', 'care', 'control', 'focus'].forEach(function (t) { if (used.rel[t]) items.push(['rel', t]); });
     if (used.tentative) items.push(['tentative']);
     if (used.implied) items.push(['implied']);
 
@@ -305,7 +323,7 @@
         if (it[1] !== 'pregnancy' && it[1] !== 'pet') g += path('M' + (cx + 1) + ' ' + (cy - 8) + 'L' + (cx + 17) + ' ' + (cy + 8) + 'M' + (cx + 17) + ' ' + (cy - 8) + 'L' + (cx + 1) + ' ' + (cy + 8), { 'stroke-width': 1.4 });
         label = F.KIND[it[1]];
       } else if (k === 'union') {
-        g = line(cx, cy, cx + 28, cy, it[1] === 'cohabit' ? { 'stroke-dasharray': '6 4' } : {});
+        g = line(cx, cy, cx + 32, cy, it[1] === 'cohabit' ? { 'stroke-dasharray': '9 4 2 4', stroke: color('cohabit') } : {});
         var n = it[1] === 'divorced' ? 2 : it[1] === 'separated' ? 1 : 0;
         for (var j = 0; j < n; j++) { var ox = cx + 10 + j * 7 + (n === 1 ? 4 : 0); g += line(ox - 4, cy + 7, ox + 4, cy - 7); }
         label = F.UNION[it[1]];
@@ -316,8 +334,9 @@
       } else if (k === 'twin') { g = line(cx + 14, cy - 11, cx + 4, cy + 11) + line(cx + 14, cy - 11, cx + 24, cy + 11); label = '쌍둥이'; }
       else if (k === 'house') { g = '<rect x="' + cx + '" y="' + (cy - 10) + '" width="30" height="20" rx="7" fill="none" stroke="' + HOUSE + '" stroke-width="1.6" stroke-dasharray="4 3"/>'; label = '함께 사는 가족'; }
       else if (k === 'rel') {
-        g = relationSvg({ type: it[1], sub: null }, { p0: { x: cx, y: cy }, c: { x: cx + 16, y: cy }, p2: { x: cx + 32, y: cy } }, color).replace(/<text[^>]*>[^<]*<\/text>/g, '');
-        label = F.REL[it[1]].label;
+        var parts = it[1].split(':'), sub = parts[1] ? { violence: 'violence', body: 'physical', emotion: 'emotional' }[parts[1]] : null;
+        g = relationSvg({ type: parts[0], sub: sub }, { p0: { x: cx, y: cy }, c: { x: cx + 17, y: cy }, p2: { x: cx + 34, y: cy } }, color).replace(/<text[^>]*>[^<]*<\/text>/g, '');
+        label = parts[1] ? F.ABUSE_GROUP_LABEL[parts[1]] : F.REL[parts[0]].label;
       } else if (k === 'tentative') {
         g = '<circle cx="' + (cx + 14) + '" cy="' + cy + '" r="8" fill="' + PAPER + '" stroke="' + MUTED + '" stroke-width="1.4"/>' + text(cx + 14, cy + 4, '?', { 'font-size': 11, 'font-weight': 700, fill: MUTED });
         label = '확인 필요';
@@ -403,19 +422,19 @@
         var left = A.x <= B.x ? A : B, right = A.x <= B.x ? B : A;
         var between = m.persons.some(function (p) { var q = pos[p.id]; return q && q.y === left.y && q.x > left.x + 5 && q.x < right.x - 5; });
         var by = left.y + H + 62 + (between ? 14 : 0);
-        var dash = u.status === 'cohabit' ? '6 5' : null;
+        var dash = u.status === 'cohabit' ? '9 4 2 4' : null;
         var isSel = sel.type === 'union' && sel.id === u.id;
-        var st = { 'stroke-dasharray': dash, stroke: isSel ? SEL : INK, 'stroke-width': isSel ? 3 : 2 };
+        var st = { 'stroke-dasharray': dash, stroke: isSel ? SEL : u.status === 'cohabit' ? color('cohabit') : INK, 'stroke-width': isSel ? 3 : 2, 'stroke-linejoin': 'miter' };
         out.push(path('M' + r(left.x) + ' ' + r(left.y + H + 2) + 'V' + r(by) + 'H' + r(right.x) + 'V' + r(right.y + H + 2), st));
         var mx = (left.x + right.x) / 2;
         if (u.status === 'divorced' || u.status === 'separated') {
           var n = u.status === 'divorced' ? 2 : 1;
-          for (var k = 0; k < n; k++) { var ox = mx - 10 + k * 9 + (n === 1 ? 4 : 0) + 18; out.push(line(ox - 5, by + 9, ox + 5, by - 9, { 'stroke-linecap': 'round' })); }
+          for (var k = 0; k < n; k++) { var ox = mx - 10 + k * 9 + (n === 1 ? 4 : 0) + 18; out.push(line(ox - 5, by + 9, ox + 5, by - 9)); }
         }
         var lab = [];
         if (u.start) lab.push((u.status === 'cohabit' ? '동거 ' : '결혼 ') + u.start + (u.status === 'cohabit' && !u.end ? '~' : ''));
         if (u.end) lab.push((u.status === 'divorced' ? '이혼 ' : u.status === 'separated' ? '별거 ' : '') + u.end);
-        if (lab.length) out.push(text(mx, by - 7, lab.join(' · '), halo({ 'font-size': 11, fill: MUTED })));
+        if (lab.length) out.push(text((left.x + mx) / 2, by - 7, lab.join(' · '), halo({ 'font-size': 11, fill: MUTED })));
         hits.push('<g data-kind="union" data-id="' + u.id + '"><path d="M' + r(left.x) + ' ' + r(by) + 'H' + r(right.x) + '" stroke="transparent" stroke-width="16" fill="none"/></g>');
         umid[u.id] = { x: mx, y: by };
       } else if (A || B) {
@@ -497,7 +516,7 @@
     m.relations.forEach(function (rl) {
       var a = pos[rl.a], b = pos[rl.b];
       if (!a || !b) return;
-      used.rel[rl.type] = 1;
+      used.rel[rl.type === 'abuse' ? 'abuse:' + (F.ABUSE_GROUP[rl.sub] || 'violence') : rl.type] = 1;
       if (rl.tentative) used.tentative = true;
       var key = [rl.a, rl.b].sort().join('|');
       var n = pairCount[key] = (pairCount[key] || 0) + 1;
@@ -513,7 +532,7 @@
       var isSel = sel.type === 'rel' && sel.id === rl.id;
       var svg = relationSvg(rl, q, color);
       rels.push('<g data-kind="rel" data-id="' + rl.id + '"' + (rl.tentative ? ' opacity="0.55"' : '') + '>' +
-        (isSel ? path(qd(q), { stroke: SEL, 'stroke-width': 14, 'stroke-opacity': 0.3, 'stroke-linecap': 'round' }) : '') +
+        (isSel ? path(qd(q), { stroke: SEL, 'stroke-width': 14, 'stroke-opacity': 0.3 }) : '') +
         svg + path(qd(q), { stroke: 'transparent', 'stroke-width': 16 }) + '</g>');
     });
 

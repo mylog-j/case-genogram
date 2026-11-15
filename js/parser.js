@@ -172,7 +172,7 @@
 
   // ── 관계 표현 ───────────────────────────────────────────
   var CLEAR_REL = [
-    ['abuse', /학대|폭력|폭행|때리|때렸|구타|성추행|성폭|추행|폭언|방임/],
+    ['abuse', /학대|폭력|폭행|때리|때린|때렸|구타|성추행|성폭|추행|폭언|방임|방치|맞았|맞고 ?자|맞는다|맞아 ?왔/],
     ['cutoff', /단절|연락이 ?끊|연락을 ?끊|왕래가 ?없|왕래하지 ?않|의절|절연/],
     ['hostile', /적대|증오|적개심/],
     ['control', /통제|간섭|대신 ?결정|결정을 ?대신/],
@@ -196,7 +196,8 @@
     [/가깝|가까/, ['close', 'fused'], '가깝다']
   ];
   var DEATH_RE = /사망|돌아가|별세|작고|세상을 ?떠|숨졌|숨지/;
-  var PASSIVE_RE = /당했|당함|당하|받았|받음|받고|받는/;
+  // 당한 쪽에서 쓴 문장: "아버지에게 맞았다", "어머니로부터 방임되었다", "삼촌에 의해 학대받았다"
+  var PASSIVE_RE = /당했|당함|당하|당해|받았|받음|받고|받는|맞았|맞고|맞는|맞아|로부터|에 ?의해|(방임|방치|학대|폭행)(되었|됐|되어|돼)/;
   var SOURCE_RE = /진술|라고 ?(했|말했|함|한다)|주장/;
   var TENTATIVE_RE = /의심|추정|것 ?같/;
   var HOUSE_RE = /(함께|같이) ?(살|산다|거주|생활)|한집에/;
@@ -212,7 +213,7 @@
     '입양', '위탁', '쌍둥이', '일란성', '이란성', '동거', '임신', '유산', '사산'];
 
   var PREV_OK = /[\s,.()\[\]·"'“”‘’\-~:;!?]/;
-  var NEXT_OK = /[\s,.()\[\]·"'“”‘’\-~:;!?은는이가과와도의을를랑에하께님]/;
+  var NEXT_OK = /[\s,.()\[\]·"'“”‘’\-~:;!?은는이가과와도의을를랑에하께님로한]/;
 
   // ── 도우미 ──────────────────────────────────────────────
   function aliases(name) {
@@ -716,7 +717,7 @@
         F.addLink(m, u.id, p.id, 'bio');
       }
     });
-    if (sameRank) subject.rank = sameRank;
+    if (sameRank) { subject.rank = sameRank; subject.compWord = rankWord; }
   };
 
   Parser.prototype.clause = function (text) {
@@ -770,11 +771,14 @@
       var fearful = ambig && ambig[2] === '두려움';
       var note = SOURCE_RE.test(text) ? '진술' : '';
       var tentative = TENTATIVE_RE.test(text);
+      // 폭력(빨강) · 신체·성적 학대(파랑) · 정서학대·방임(보라)
       var sub = null;
-      if (/성추행|성폭|성적|추행/.test(text)) sub = 'sexual';
-      else if (/정서적|폭언|모욕|위협/.test(text)) sub = 'emotional';
-      else if (/방임|돌보지 ?않/.test(text)) sub = 'neglect';
-      else if (/폭행|폭력|때리|때렸|구타|신체/.test(text)) sub = 'physical';
+      if (/성추행|성폭|성적|추행|성 ?학대/.test(text)) sub = 'sexual';
+      else if (/정서적|정서 ?학대|폭언|모욕|위협/.test(text)) sub = 'emotional';
+      else if (/방임|방치|돌보지 ?않/.test(text)) sub = 'neglect';
+      else if (/학대/.test(text)) sub = 'physical';
+      else sub = 'violence';
+      var mutual = /서로/.test(text);
       others.forEach(function (o) {
         var from = first, to = o;
         if (passive || fearful) { from = o; to = first; }
@@ -791,9 +795,12 @@
           if (value === 'none') { self.effects++; return; }
           type = value;
         }
-        if (F.addRelation(m, from.id, to.id, type, { sub: type === 'abuse' ? (sub || 'physical') : null, note: note, tentative: tentative, key: key })) self.effects++;
+        var nr = F.addRelation(m, from.id, to.id, type, { sub: type === 'abuse' ? sub : null, note: note, tentative: tentative, key: key });
+        if (nr) { if (mutual && F.REL[type].dir) nr.mutual = true; self.effects++; }
       });
     }
+    // 화살표가 있는 관계인데 한 사람만 나오면 "누가 했는지" 안내
+    var missingActor = (relType && F.REL[relType] && F.REL[relType].dir) && people.length === 1;
 
     // ── 부부 관계
     var status = null;
@@ -927,7 +934,8 @@
     }
 
     var st, hint = '';
-    if (pendingChoice) { st = 'choice'; hint = '해석이 갈리는 표현이 있어요. 아래에서 골라 주세요.'; }
+    if (missingActor) { st = 'partial'; hint = '누가 누구에게 했는지 알 수 없어 화살표를 긋지 않았어요. "아버지가 내담자를 ~", "내담자는 아버지에게 ~"처럼 두 사람을 함께 적어 주세요.'; }
+    else if (pendingChoice) { st = 'choice'; hint = '해석이 갈리는 표현이 있어요. 아래에서 골라 주세요.'; }
     else if (this.effects > 0) st = 'ok';
     else if (parts.length) {
       st = 'partial';
@@ -996,6 +1004,16 @@
         }
       });
       delete p.sibDeclared;
+    });
+    // "장녀인데 형부(언니의 남편)가 있다"처럼 순서가 안 맞을 때
+    m.persons.forEach(function (p) {
+      if (!p.compWord || !p.rank) return;
+      var older = F.siblingsOf(m, p.id).filter(function (s) { return s.gender === p.gender && s.order === 'older'; });
+      if (older.length > p.rank - 1) {
+        m.lines.push({ text: F.displayName(p) + ' — ' + p.compWord, status: 'warn',
+          hint: F.displayName(p) + '은(는) ' + p.compWord + '인데 손위 ' + (p.gender === 'F' ? '여자' : '남자') + ' 형제(' + older.map(function (s) { return s.label; }).join(', ') + ')가 적혀 있어요. 적힌 대로 그렸으니 확인해 주세요.' });
+      }
+      delete p.compWord;
     });
     F.cleanup(m);
     return m;

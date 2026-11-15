@@ -105,6 +105,18 @@
       var nl = F.addLink(cur, uid, child, l.type);
       nl.twin = l.twin; nl.identical = l.identical;
     });
+    // 문장에서 더는 나오지 않는 사람(고르기 답을 바꿨거나 문장을 지운 경우)은, 직접 고치지 않았다면 지운다
+    var parsedKeys = {};
+    parsed.persons.forEach(function (p) { personKeys(p).forEach(function (k) { parsedKeys[k] = 1; }); });
+    cur.persons.slice().forEach(function (c) {
+      if (c.edited || !c.key || /^u:/.test(c.key) || c.client) return;
+      if (personKeys(c).some(function (k) { return parsedKeys[k]; })) return;
+      F.removePerson(cur, c.id);
+    });
+    // 문장에서 나온 관계선도 마찬가지
+    var parsedRel = {};
+    parsed.relations.forEach(function (r) { if (map[r.a] && map[r.b]) parsedRel[map[r.a] + '|' + r.type + '|' + map[r.b]] = 1; });
+    cur.relations = cur.relations.filter(function (r) { return r.edited || r.key || parsedRel[r.a + '|' + r.type + '|' + r.b] || parsedRel[r.b + '|' + r.type + '|' + r.a]; });
     // 고르기로 정한 관계는 답이 바뀌면 따라 바뀐다
     var parsedKeyed = {};
     parsed.relations.forEach(function (r) { if (r.key) parsedKeyed[r.key] = r; });
@@ -394,7 +406,9 @@
       lines.push({ sel: { type: 'union', id: u.id }, text: F.displayName(F.person(m, u.a)) + ' · ' + F.displayName(F.person(m, u.b)), tag: F.UNION[u.status] + (u.start || u.end ? ' ' + [u.start, u.end].filter(Boolean).join('–') : '') });
     });
     m.relations.forEach(function (r) {
-      lines.push({ sel: { type: 'rel', id: r.id }, rel: r, text: F.displayName(F.person(m, r.a)) + (F.REL[r.type].dir ? ' → ' : ' ↔ ') + F.displayName(F.person(m, r.b)), tag: F.REL[r.type].label + (r.tentative ? ' (확인 필요)' : '') });
+      var arrowTxt = F.REL[r.type].dir ? (r.mutual ? ' ⇄ ' : ' → ') : ' ↔ ';
+      var lab = r.type === 'abuse' ? F.ABUSE_GROUP_LABEL[F.ABUSE_GROUP[r.sub] || 'violence'] + (F.ABUSE_SUB[r.sub] && r.sub !== 'violence' ? ' (' + F.ABUSE_SUB[r.sub] + ')' : '') : F.REL[r.type].label;
+      lines.push({ sel: { type: 'rel', id: r.id }, rel: r, text: F.displayName(F.person(m, r.a)) + arrowTxt + F.displayName(F.person(m, r.b)), tag: lab + (r.tentative ? ' (확인 필요)' : '') });
     });
     var h2 = el('div', { className: 'roster-head' }, [el('h3', {}, ['관계선 목록 ', el('span', { textContent: lines.length + '개' })])]);
     var addRel = button(ui.addRel ? '닫기' : '+ 관계선 추가', function () { ui.addRel = !ui.addRel; drawRoster(); }, 'btn btn-ghost btn-sm');
@@ -409,7 +423,7 @@
       col2.appendChild(el('div', { className: 'roster-add' }, [a, t, b,
         button('추가', act(function () {
           if (a.value === b.value) { alert('서로 다른 두 사람을 골라 주세요.'); return; }
-          var r = F.addRelation(m, a.value, b.value, t.value, { sub: t.value === 'abuse' ? 'physical' : null });
+          var r = F.addRelation(m, a.value, b.value, t.value, { sub: t.value === 'abuse' ? 'violence' : null });
           if (r) r.edited = true;
           ui.addRel = false;
           changed();
@@ -516,7 +530,7 @@
       type.setAttribute('aria-label', '관계 종류');
       rel.appendChild(target); rel.appendChild(type);
       rel.appendChild(button('더하기', act(function () {
-        var r = F.addRelation(m, p.id, target.value, type.value, { sub: type.value === 'abuse' ? 'physical' : null });
+        var r = F.addRelation(m, p.id, target.value, type.value, { sub: type.value === 'abuse' ? 'violence' : null });
         if (r) { r.edited = true; state.selected = { type: 'rel', id: r.id }; }
         changed();
       }), 'btn btn-ink btn-sm'));
@@ -548,21 +562,30 @@
     head(box, F.REL[r.type].label, F.displayName(a) + (F.REL[r.type].dir ? ' → ' : ' ↔ ') + F.displayName(b));
     var grid = el('div', { className: 'form-grid' });
     grid.appendChild(field('종류', select(Object.keys(F.REL).map(function (k) { return [k, F.REL[k].label]; }), r.type, function (v) {
-      checkpoint(); r.type = v; if (v === 'abuse' && !r.sub) r.sub = 'physical'; changed(r);
+      checkpoint(); r.type = v; if (v === 'abuse' && !r.sub) r.sub = 'violence'; changed(r);
     })));
-    if (r.type === 'abuse') grid.appendChild(field('학대 유형', select(Object.keys(F.ABUSE_SUB).map(function (k) { return [k, F.ABUSE_SUB[k]]; }), r.sub, function (v) { checkpoint(); r.sub = v; changed(r); })));
+    if (r.type === 'abuse') grid.appendChild(field('폭력·학대 종류', select([
+      ['violence', '폭력 (빨강)'], ['physical', '신체 학대 (파랑)'], ['sexual', '성적 학대 (파랑)'],
+      ['emotional', '정서 학대 (보라)'], ['neglect', '방임 (보라)']
+    ], r.sub, function (v) { checkpoint(); r.sub = v; changed(r); })));
     var opts = personOptions();
-    grid.appendChild(field(F.REL[r.type].dir ? '하는 사람' : '한쪽', select(opts, r.a, function (v) { checkpoint(); r.a = v; changed(r); })));
-    grid.appendChild(field(F.REL[r.type].dir ? '받는 사람' : '다른 쪽', select(opts, r.b, function (v) { checkpoint(); r.b = v; changed(r); })));
+    var isDir = F.REL[r.type].dir, isAbuse = r.type === 'abuse';
+    grid.appendChild(field(isDir ? (isAbuse ? '한 사람 (화살표 시작)' : '하는 사람 (화살표 시작)') : '한쪽', select(opts, r.a, function (v) { checkpoint(); r.a = v; changed(r); })));
+    grid.appendChild(field(isDir ? (isAbuse ? '당한 사람 (화살표 끝)' : '받는 사람 (화살표 끝)') : '다른 쪽', select(opts, r.b, function (v) { checkpoint(); r.b = v; changed(r); })));
     grid.appendChild(field('메모', input('text', r.note, function (v) { r.note = v.trim().slice(0, 20); changed(r); }, { maxlength: 20, placeholder: '예: 진술, 2023년부터' }), true));
     box.appendChild(grid);
     var checks = el('div', { className: 'checks' });
     var tent = el('input', { type: 'checkbox', checked: r.tentative });
     tent.addEventListener('change', act(function () { r.tentative = tent.checked; changed(r); }));
     checks.appendChild(el('label', {}, [tent, ' 확인 필요로 표시']));
+    if (isDir) {
+      var mu = el('input', { type: 'checkbox', checked: !!r.mutual });
+      mu.addEventListener('change', act(function () { r.mutual = mu.checked; changed(r); }));
+      checks.appendChild(el('label', {}, [mu, ' 서로 (양쪽 화살표)']));
+    }
     box.appendChild(checks);
     var tail = el('div', { className: 'insp-tail' });
-    if (F.REL[r.type].dir) tail.appendChild(button('방향 바꾸기', act(function () { var t = r.a; r.a = r.b; r.b = t; changed(r); }), 'btn-text'));
+    if (isDir) tail.appendChild(button('⇄ 화살표 방향 바꾸기', act(function () { var t = r.a; r.a = r.b; r.b = t; changed(r); }), 'btn btn-ghost btn-sm'));
     tail.appendChild(button('이 선 지우기', act(function () {
       state.deleted['r:' + relKey(m, r)] = 1;
       m.relations = m.relations.filter(function (x) { return x !== r; });

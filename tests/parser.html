@@ -76,7 +76,25 @@
   check('부모 묶음 → 아버지·어머니', f4 && mo4);
   check('내담자-부모 갈등', rel(m4, c4, f4, 'conflict') && rel(m4, c4, mo4, 'conflict'));
   var ab = m4.relations.filter(function (r) { return r.type === 'abuse'; })[0];
-  check('당했다 → 아버지가 내담자에게, 신체', ab && ab.a === f4.id && ab.b === c4.id && ab.sub === 'physical', J(ab));
+  check('당했다 → 아버지가 내담자에게, 폭력', ab && ab.a === f4.id && ab.b === c4.id && ab.sub === 'violence', J(ab));
+  // 화살표 방향과 종류
+  function abuseOf(m) { return m.relations.filter(function (r) { return r.type === 'abuse'; })[0]; }
+  var d1 = parse('내담자는 아버지에게 맞고 자랐다.'), r1 = abuseOf(d1);
+  check('"아버지에게 맞고" → 아버지 → 내담자, 폭력', r1 && r1.a === father(d1).id && r1.b === client(d1).id && r1.sub === 'violence', J(r1));
+  var d2 = parse('내담자는 어머니로부터 방임되었다.'), r2 = abuseOf(d2);
+  check('"어머니로부터 방임되었다" → 어머니 → 내담자, 방임', r2 && r2.a === mother(d2).id && r2.sub === 'neglect', J(r2));
+  var d3 = parse('아버지가 내담자를 신체적으로 학대했다.'), r3 = abuseOf(d3);
+  check('"아버지가 내담자를 학대했다" → 아버지 → 내담자, 신체 학대', r3 && r3.a === father(d3).id && r3.sub === 'physical', J(r3));
+  var d4 = parse('아버지와 어머니는 서로 때린다.'), r4 = abuseOf(d4);
+  check('"서로 때린다" → 양쪽 화살표', r4 && r4.mutual === true, J(r4));
+  var d5 = parse('내담자는 학대를 받았다.');
+  check('누가 했는지 없음 → 선 없음 + 안내', !abuseOf(d5) && d5.lines[0].status === 'partial', J(d5.lines));
+  var d6 = parse('어머니는 내담자에게 폭언을 했다.'), r6 = abuseOf(d6);
+  check('"폭언" → 정서 학대, 어머니 → 내담자', r6 && r6.a === mother(d6).id && r6.sub === 'emotional', J(r6));
+  var d7 = parse('누나가 어머니의 주 보호자가 되었다.'), r7 = d7.relations[0];
+  check('"보호자가 되었다"는 뒤집지 않기 (누나 → 어머니 돌봄)', r7 && r7.type === 'care' && F.person(d7, r7.a).label === '누나', J(r7));
+  var d8 = parse('내담자는 김하나(여)이고 2녀 중 장녀이다. 형부가 있다.');
+  check('장녀인데 형부 → 안내', d8.lines.some(function (l) { return l.status === 'warn'; }), J(d8.lines));
   check('괄호 없는 내담자 성별·나이', c4.gender === 'M' && c4.age === 10, J(c4));
 
   var m5 = parse('아버지는 친할머니가 돌아가신 뒤 술을 자주 마셨다.');

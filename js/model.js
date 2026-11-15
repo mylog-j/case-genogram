@@ -7,7 +7,7 @@
 
   var REL = {
     close: { label: '친밀' },
-    fused: { label: '밀착' },
+    fused: { label: '밀착·융합' },
     conflict: { label: '갈등' },
     hostile: { label: '적대' },
     distant: { label: '소원' },
@@ -15,12 +15,15 @@
     closeConflict: { label: '친밀하면서 갈등' },
     fusedConflict: { label: '밀착하면서 갈등' },
     abuse: { label: '폭력·학대', dir: true },
-    control: { label: '통제', dir: true },
+    control: { label: '통제·집착', dir: true },
     focus: { label: '부정적 초점', dir: true },
     care: { label: '돌봄', dir: true },
     oneSided: { label: '일방적 애착', dir: true }
   };
-  var ABUSE_SUB = { physical: '신체', sexual: '성', emotional: '정서', neglect: '방임' };
+  // 폭력(빨강) · 신체·성적 학대(파랑) · 정서학대·방임(보라 점선)
+  var ABUSE_SUB = { violence: '폭력', physical: '신체 학대', sexual: '성적 학대', emotional: '정서 학대', neglect: '방임' };
+  var ABUSE_GROUP = { violence: 'violence', physical: 'body', sexual: 'body', emotional: 'emotion', neglect: 'emotion' };
+  var ABUSE_GROUP_LABEL = { violence: '폭력', body: '신체·성적 학대', emotion: '정서학대·방임' };
   var UNION = { married: '결혼', cohabit: '동거', separated: '별거', divorced: '이혼' };
   var LINK = { bio: '친자', adopted: '입양', foster: '위탁', unknown: '친자 미상' };
   var KIND = { person: '사람', pregnancy: '임신', miscarriage: '유산', abortion: '임신중절', stillbirth: '사산', pet: '반려동물' };
@@ -225,7 +228,7 @@
   function clone(m) { return JSON.parse(JSON.stringify(m)); }
 
   global.FamilyModel = {
-    REL: REL, ABUSE_SUB: ABUSE_SUB, UNION: UNION, LINK: LINK, KIND: KIND,
+    REL: REL, ABUSE_SUB: ABUSE_SUB, ABUSE_GROUP: ABUSE_GROUP, ABUSE_GROUP_LABEL: ABUSE_GROUP_LABEL, UNION: UNION, LINK: LINK, KIND: KIND,
     create: create, addPerson: addPerson, addUnion: addUnion, addLink: addLink, addRelation: addRelation,
     person: person, union: union, clientOf: clientOf, unionsOf: unionsOf, partnerIn: partnerIn,
     parentUnionOf: parentUnionOf, linkOf: linkOf, childrenOf: childrenOf, ensureParentUnion: ensureParentUnion,
