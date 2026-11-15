@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<title>한글 문장으로 만드는 사례 가계도</title>
+<meta name="description" content="사례를 한글 문장으로 적으면 사례개념화 가계도를 바로 그려 주는 무료 도구. 가입 없이 쓰고, 입력한 내용은 저장하지 않아요.">
+<meta property="og:title" content="한글 문장으로 만드는 사례 가계도">
+<meta property="og:description" content="사례를 문장으로 적으면, 가계도가 그려집니다. 무료, 가입 없이, 저장하지 않아요.">
+<meta name="theme-color" content="#FBFAF7">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Pen+Script&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip" href="#make">가계도 만들기로 바로 가기</a>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="nav-wrap">
+  <nav class="nav" aria-label="주요 메뉴">
+    <a class="brand" href="#top" aria-label="한글 문장으로 만드는 사례 가계도, 맨 위로">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="3" y="4" width="10" height="10" rx="1.5"/><circle cx="24" cy="9" r="5"/>
+        <path d="M8 14v4h16v-4M16 18v5"/><circle cx="16" cy="27" r="3.2" class="dot"/>
+      </svg>
+      <span class="brand-name">사례 가계도</span>
+    </a>
+    <div class="nav-links">
+      <a href="#how">쓰는 법</a>
+      <a href="#safety">안전</a>
+      <a href="#faq">자주 묻는 것</a>
+    </div>
+    <a class="btn btn-ink btn-sm" href="#make">가계도 만들기</a>
+  </nav>
+</header>
+
+<main id="top">
+  <!-- 첫 화면 -->
+  <section class="hero">
+    <div class="hero-copy">
+      <h1><span>사례를 문장으로 적으면,</span> <span>가계도가 그려집니다.</span></h1>
+      <p class="lede">사회복지사·상담사·수련생을 위한 사례개념화 가계도 도구예요. 상담 기록처럼 한글로 적으면 표준 기호로 가계도를 그려 줘요.</p>
+      <ul class="promise">
+        <li>무료</li>
+        <li>가입 없이 바로</li>
+        <li>입력한 내용은 저장하지 않아요</li>
+      </ul>
+      <div class="hero-actions">
+        <a class="btn btn-coral" href="#make">가계도 만들기</a>
+        <button class="btn btn-ghost" type="button" data-load-example>예시로 먼저 보기</button>
+      </div>
+    </div>
+
+    <figure class="demo" aria-label="가상 사례 문장이 가계도로 바뀌는 예시">
+      <div class="demo-note">
+        <p class="demo-tag">가상 사례</p>
+        <ol class="demo-lines" id="demo-lines"></ol>
+        <span class="hand hand-1" aria-hidden="true">실명 대신 가명으로</span>
+      </div>
+      <div class="demo-chart" id="demo-chart"></div>
+      <span class="hand hand-2" aria-hidden="true">문장마다 바로 그려져요</span>
+    </figure>
+  </section>
+
+  <!-- 쓰는 법 -->
+  <section class="how" id="how" aria-labelledby="how-title">
+    <div class="section-head">
+      <h2 id="how-title">이렇게 쓰면 알아들어요</h2>
+      <p>한 문장에 한 가지씩, 상담 기록 쓰듯 적어 주세요. 내담자를 기준으로 아버지, 누나, 외할머니처럼 관계를 부르면 돼요.</p>
+    </div>
+    <div class="rules" role="list" tabindex="0" aria-label="문장 규칙 예시, 옆으로 넘겨 보세요">
+      <article class="rule" role="listitem">
+        <h3>가족 소개</h3>
+        <p class="rule-ex">아버지는 김정우(47세)이고, 어머니는 박선영(44세)이다.</p>
+        <p class="rule-out">관계 + 이름 + (나이)로 사람을 만들어요.</p>
+      </article>
+      <article class="rule" role="listitem">
+        <h3>성별과 나이</h3>
+        <p class="rule-ex">내담자는 김하늘(여, 16세)이다.</p>
+        <p class="rule-out">괄호 안에 남·여와 나이를 적어요. 아버지·누나처럼 성별이 드러나는 말은 따로 안 적어도 돼요.</p>
+      </article>
+      <article class="rule" role="listitem">
+        <h3>형제자매</h3>
+        <p class="rule-ex">오빠 김바다(19세)가 있고, 남동생 김지후(12세)가 있다.</p>
+        <p class="rule-out">형·오빠·누나·언니는 왼쪽, 동생은 오른쪽에 놓여요.</p>
+      </article>
+      <article class="rule" role="listitem">
+        <h3>사망</h3>
+        <p class="rule-ex">외할머니는 2021년에 사망했다.</p>
+        <p class="rule-out">사망, 돌아가셨다, 별세 같은 말이 있으면 기호에 X를 그어요.</p>
+      </article>
+      <article class="rule" role="listitem">
+        <h3>부부 관계</h3>
+        <p class="rule-ex">아버지와 어머니는 3년 전에 이혼했다.</p>
+        <p class="rule-out">결혼, 이혼, 별거, 동거를 부부선에 표시해요.</p>
+      </article>
+      <article class="rule" role="listitem">
+        <h3>정서적 관계</h3>
+        <p class="rule-ex">하늘이와 아버지는 갈등이 심하다.</p>
+        <p class="rule-out">친밀, 밀착, 갈등, 소원, 단절, 폭력을 두 사람 사이에 선으로 그려요.</p>
+      </article>
+      <article class="rule" role="listitem">
+        <h3>이름으로 다시 부르기</h3>
+        <p class="rule-ex">하늘이는 어머니와 밀착되어 있다.</p>
+        <p class="rule-out">앞에서 소개한 이름(김하늘, 하늘)으로 불러도 같은 사람으로 알아들어요.</p>
+      </article>
+    </div>
+    <details class="words">
+      <summary>알아듣는 낱말 모두 보기</summary>
+      <dl>
+        <dt>사람</dt>
+        <dd>내담자, 본인, 아버지(아빠), 어머니(엄마), 부모, 형, 오빠, 누나, 언니, 남동생, 여동생, 동생, 남편, 아내, 배우자, 아들, 딸, 자녀, 친할아버지, 친할머니, 외할아버지, 외할머니, 조부모. 할아버지·할머니만 쓰면 친가로 그려요.</dd>
+        <dt>부부</dt>
+        <dd>결혼, 재혼, 이혼, 별거, 동거, 사실혼</dd>
+        <dt>정서적 관계</dt>
+        <dd>친밀(가깝다, 사이가 좋다), 밀착(융합, 과잉보호), 갈등(다툼, 불화, 사이가 나쁘다), 소원(거리감, 서먹하다), 단절(연락이 끊겼다, 왕래가 없다), 폭력(학대, 폭행, 때렸다)</dd>
+        <dt>사망</dt>
+        <dd>사망, 돌아가셨다, 별세, 작고, 세상을 떠났다</dd>
+      </dl>
+      <p class="words-note">알아듣지 못한 문장은 따로 알려 드려요. 아래 ‘직접 고치기’에서 사람과 관계를 손으로 더하거나 고칠 수도 있어요.</p>
+    </details>
+  </section>
+
+  <!-- 안전 -->
+  <section class="safety" id="safety" aria-labelledby="safety-title">
+    <h2 id="safety-title">입력한 문장은 이 브라우저 밖으로 나가지 않아요.</h2>
+    <div class="safety-grid">
+      <div>
+        <h3>보내는 기능이 없어요</h3>
+        <p>문장 해석과 가계도 그리기는 모두 지금 보고 계신 브라우저 안에서 일어나요. 이 페이지에는 입력한 내용을 서버로 보내는 기능이 없고, 브라우저 보안 설정으로 외부 전송도 막아 두었어요.</p>
+      </div>
+      <div>
+        <h3>저장하지 않아요</h3>
+        <p>창을 닫거나 새로고침하면 입력한 문장과 가계도가 사라져요. 남겨 두려면 PNG나 PDF로 내려받아 주세요.</p>
+      </div>
+      <div>
+        <h3>가명으로 적어 주세요</h3>
+        <p>그래도 실명, 주민등록번호, 주소 같은 정보는 넣지 않는 것이 좋아요. 이름 대신 가명이나 머리글자를 써도 똑같이 그려져요.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 만들기 -->
+  <section class="make" id="make" aria-labelledby="make-title">
+    <div class="section-head">
+      <h2 id="make-title">가계도 만들기</h2>
+      <p>왼쪽에 사례를 적으면 오른쪽에 바로 그려져요.</p>
+    </div>
+
+    <div class="workbench">
+      <div class="panel panel-input">
+        <div class="panel-bar">
+          <label for="case-text">사례 문장</label>
+          <div class="bar-actions">
+            <button class="btn-text" type="button" data-load-example>예시 넣기</button>
+            <button class="btn-text" type="button" id="clear-text">모두 지우기</button>
+          </div>
+        </div>
+        <textarea id="case-text" spellcheck="false" autocomplete="off" rows="12"
+          placeholder="예) 내담자는 김하늘(여, 16세)이다.&#10;아버지와 어머니는 3년 전에 이혼했다.&#10;하늘이와 아버지는 갈등이 심하다."></textarea>
+        <p class="status" id="parse-status" aria-live="polite"></p>
+        <ul class="issues" id="issues"></ul>
+
+        <div class="edited-banner" id="edited-banner" hidden>
+          <p>직접 고친 내용이 있어서, 문장을 바꿔도 가계도가 자동으로 바뀌지 않아요.</p>
+          <button class="btn btn-ghost btn-sm" type="button" id="reparse">문장으로 다시 그리기</button>
+        </div>
+
+        <details class="helper" id="helper">
+          <summary>
+            <span>직접 고치기</span>
+            <span class="helper-hint">사람과 관계를 손으로 고치거나 더해요</span>
+          </summary>
+          <div class="helper-body">
+            <h3>사람</h3>
+            <div class="people" id="people"></div>
+            <button class="btn-text" type="button" id="add-person">+ 사람 더하기</button>
+
+            <div id="unions-wrap">
+              <h3>부부 관계</h3>
+              <div class="unions" id="unions"></div>
+            </div>
+
+            <h3>정서적 관계</h3>
+            <div class="relations" id="relations"></div>
+            <button class="btn-text" type="button" id="add-relation">+ 관계 더하기</button>
+          </div>
+        </details>
+      </div>
+
+      <div class="panel panel-chart">
+        <div class="panel-bar">
+          <span class="bar-title">가계도</span>
+          <div class="bar-actions">
+            <button class="btn btn-ink btn-sm" type="button" id="dl-png" disabled>PNG로 내려받기</button>
+            <button class="btn btn-ghost btn-sm" type="button" id="dl-pdf" disabled>PDF로 내려받기</button>
+          </div>
+        </div>
+        <div class="chart" id="chart">
+          <div class="empty">
+            <p>사례 문장을 적으면 여기에 가계도가 그려져요.</p>
+            <button class="btn btn-ghost btn-sm" type="button" data-load-example>예시 넣기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 후기 자리 -->
+  <section class="reviews" aria-labelledby="reviews-title">
+    <h2 id="reviews-title">써 본 분들의 이야기</h2>
+    <p>아직 실린 후기가 없어요. 실제로 써 본 분들의 후기가 생기면 이곳에 싣습니다.</p>
+  </section>
+
+  <!-- 자주 묻는 것 -->
+  <section class="faq" id="faq" aria-labelledby="faq-title">
+    <h2 id="faq-title">자주 묻는 것</h2>
+    <div class="faq-list">
+      <details>
+        <summary>무료인가요? 가입해야 하나요?</summary>
+        <div><p>무료예요. 회원가입이나 로그인 없이 바로 쓸 수 있어요.</p></div>
+      </details>
+      <details>
+        <summary>입력한 사례 내용이 어딘가에 저장되나요?</summary>
+        <div><p>저장하지 않아요. 문장 해석과 그리기는 모두 브라우저 안에서 일어나고, 입력한 내용을 서버로 보내는 기능이 없어요. 창을 닫으면 사라지니, 필요하면 PNG나 PDF로 내려받아 두세요.</p></div>
+      </details>
+      <details>
+        <summary>어떤 기호로 그려지나요?</summary>
+        <div><p>가계도에서 흔히 쓰는 기호를 따라요. 남성은 네모, 여성은 동그라미, 성별을 모르면 마름모, 내담자는 이중선, 사망은 X로 그려요. 부부선에는 이혼(빗금 두 개)·별거(빗금 하나)·동거(점선)를 표시하고, 정서적 관계는 색과 모양이 다른 선으로 그려요. 쓰인 기호는 가계도 아래 범례에 함께 나와요.</p></div>
+      </details>
+      <details>
+        <summary>보고서나 과제에 넣을 수 있나요?</summary>
+        <div><p>PNG(이미지)나 PDF로 내려받아 한글·워드 문서, 발표 자료에 넣을 수 있어요. 범례도 함께 들어가요.</p></div>
+      </details>
+      <details>
+        <summary>문장을 못 알아들으면 어떻게 하나요?</summary>
+        <div><p>못 알아들은 문장은 입력칸 아래에 따로 보여 드려요. 문장을 ‘쓰는 법’의 예시처럼 고치거나, ‘직접 고치기’에서 사람과 관계를 손으로 더하면 돼요.</p></div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <p class="footer-name">한글 문장으로 만드는 사례 가계도</p>
+  <p>입력한 내용은 저장하지 않습니다.</p>
+</footer>
+
+<script src="js/parser.js"></script>
+<script src="js/genogram.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
