@@ -113,8 +113,8 @@
   check('"사이가 좋지 않다" → 고르기', parse('내담자는 아버지와 사이가 좋지 않다.').choices.length === 1);
   check('"누나와 거의 연락하지 않는다" → 고르기', parse('내담자는 누나와 거의 연락하지 않는다.').choices.length === 1);
   var m15 = parse('할머니는 2018년에 사망했다.');
-  check('할머니 → 친가/외가 고르기(기본 친가)', m15.choices.length === 1 && m15.choices[0].kind === 'side' && m15.choices[0].value === 'P');
-  var a15 = {}; a15[m15.choices[0].key] = 'M';
+  check('할머니 → 친가/외가 고르기(기본 친가)', m15.choices.length === 1 && m15.choices[0].kind === 'side' && m15.choices[0].value === 'F>M', J(m15.choices));
+  var a15 = {}; a15[m15.choices[0].key] = 'M>M';
   var m15b = parse('할머니는 2018년에 사망했다.', a15);
   check('외가로 고르면 어머니의 어머니', F.parentOf(m15b, mother(m15b).id, 'F', null, false).deceased);
 
@@ -165,6 +165,102 @@
   var m27 = parse('아버지의 전처는 최은정이다.');
   check('"아버지의 전처" → 아버지와 이혼한 배우자', m27.persons.some(function (p) { return p.name === '최은정'; }) && F.unionsOf(m27, father(m27).id).some(function (u) { return u.status === 'divorced'; }));
   check('1978년생', parse('아버지는 1978년생이다.').persons.some(function (p) { return p.birthYear === 1978; }));
+
+  // ── 올려 주신 사례 (2026-11-15)
+  var caseText = [
+    '내담자 A는 45세 여성으로 1남 2녀 중 장녀이며, 남편 B는 50세 남성으로 2남 1녀 중 차남이다.',
+    '두 사람에게는 12세 딸과 9세 아들이 있으며 현재 셋째 자녀를 임신 중이다.',
+    '내담자와 남편, 딸, 아들은 함께 살고 있다.',
+    '내담자의 아버지는 75세이고 어머니는 72세이다. 내담자는 아버지와 친밀하지만 어머니와는 어색하다.',
+    '내담자의 40세 남동생과는 갈등이 있다.',
+    '남편의 아버지는 2015년에 사망했으며 어머니는 75세이다.',
+    '내담자는 시어머니와 사이가 좋다.',
+    '남편에게는 누나 한 명과 남동생 한 명이 있다.',
+    '12세 딸과 9세 아들은 서로 친밀하다.'
+  ].join('\n');
+  var mc = parse(caseText), cc = client(mc), hb = F.person(mc, F.partnerIn(F.unionsOf(mc, cc.id).filter(function (u) { return u.a && u.b; })[0], cc.id));
+  check('[사례] 내담자 A, 45, 여', cc.name === 'A' && cc.age === 45 && cc.gender === 'F', J(cc));
+  check('[사례] 남편 B, 50, 남', hb && hb.name === 'B' && hb.age === 50 && hb.gender === 'M', J(hb));
+  var kidsC = F.childrenOf(mc, F.unionsOf(mc, cc.id).filter(function (u) { return u.a && u.b; })[0].id);
+  var dau = kidsC.filter(function (k) { return k.label === '딸'; })[0], son = kidsC.filter(function (k) { return k.label === '아들'; })[0];
+  check('[사례] 딸 12세, 아들 9세', dau && dau.age === 12 && son && son.age === 9, J(kidsC));
+  check('[사례] 임신은 내담자 부부의 자녀, 정체 모를 자녀 없음', kidsC.length === 3 && kidsC.some(function (k) { return k.kind === 'pregnancy'; }), J(kidsC.map(function (k) { return k.label; })));
+  check('[사례] 함께 사는 가족 4명', mc.household.length === 4, J(mc.household));
+  var cf = father(mc), cm = mother(mc);
+  check('[사례] 아버지 75, 어머니 72', cf.age === 75 && cm.age === 72);
+  check('[사례] 아버지와 친밀, 어머니는 고르기(어색하다)', rel(mc, cc, cf, 'close') && !mc.relations.some(function (r) { return r.b === cm.id || r.a === cm.id; }) && mc.choices.some(function (c) { return /어색/.test(c.key); }), J(mc.relations) + J(mc.choices));
+  var bro = F.siblingsOf(mc, cc.id).filter(function (s) { return s.gender === 'M'; });
+  check('[사례] 남동생 40세 한 명(1남 자리와 합침) + 갈등', bro.length === 1 && bro[0].age === 40 && rel(mc, cc, bro[0], 'conflict'), J(bro));
+  var sis = F.siblingsOf(mc, cc.id).filter(function (s) { return s.gender === 'F'; });
+  check('[사례] 1남 2녀 중 장녀 → 여동생 자리 한 명', sis.length === 1 && sis[0].order === 'younger' && sis[0].implied, J(sis));
+  var hf = F.parentOf(mc, hb.id, 'M', null, false), hm = F.parentOf(mc, hb.id, 'F', null, false);
+  check('[사례] 남편의 아버지 사망 2015, 시어머니 75', hf && hf.deceased && hf.deathYear === 2015 && hm && hm.age === 75, J([hf, hm]));
+  check('[사례] 시어머니와 친밀', rel(mc, cc, hm, 'close'));
+  var hsibs = F.siblingsOf(mc, hb.id);
+  check('[사례] 남편의 누나·남동생은 남편 형제', hsibs.some(function (s) { return s.gender === 'F' && s.order === 'older'; }) && hsibs.some(function (s) { return s.gender === 'M' && s.order === 'younger'; }), J(hsibs));
+  check('[사례] 내담자 형제에 누나 없음', !F.siblingsOf(mc, cc.id).some(function (s) { return s.label === '누나'; }));
+  check('[사례] 딸-아들 친밀 (내담자와는 아님)', rel(mc, dau, son, 'close') && !rel(mc, cc, dau, 'close'), J(mc.relations));
+  check('[사례] 차남인데 남동생 → 안내', mc.lines.some(function (l) { return l.status === 'warn'; }), J(mc.lines.filter(function (l) { return l.status === 'warn'; })));
+  check('[사례] 못 알아들은 줄 없음', !mc.lines.some(function (l) { return l.status === 'partial' || l.status === 'none'; }), J(mc.lines.filter(function (l) { return l.status === 'partial' || l.status === 'none'; })));
+
+  // ── 호칭
+  function pathOf(m, p) {
+    // 내담자에서 p 까지 가는 길을 거꾸로 찾는다 (테스트용)
+    var c = client(m), seen = {}, q = [[c, '']];
+    seen[c.id] = 1;
+    while (q.length) {
+      var it = q.shift(), x = it[0], path = it[1];
+      if (x.id === p.id) return path.slice(1);
+      var steps = [];
+      F.parentsOf(m, x.id).forEach(function (y) { steps.push([y, y.gender === 'M' ? 'F' : 'M']); });
+      F.siblingsOf(m, x.id).forEach(function (y) { steps.push([y, y.gender === 'M' ? 'B' : y.gender === 'F' ? 'Z' : 'X']); });
+      F.unionsOf(m, x.id).forEach(function (u) {
+        var y = F.person(m, F.partnerIn(u, x.id));
+        if (y) steps.push([y, y.gender === 'M' ? 'H' : y.gender === 'F' ? 'W' : 'SP']);
+        F.childrenOf(m, u.id).forEach(function (k) { steps.push([k, k.gender === 'M' ? 'S' : k.gender === 'F' ? 'D' : 'K']); });
+      });
+      steps.forEach(function (s) { if (!seen[s[0].id]) { seen[s[0].id] = 1; q.push([s[0], path + '>' + s[1]]); } });
+    }
+    return null;
+  }
+  function kin(sentence, label, expect) {
+    var mk = parse(sentence);
+    var p = mk.persons.filter(function (x) { return x.name === '홍길' || x.label === label; })[0];
+    var got = p && pathOf(mk, p);
+    check('호칭 ' + label + ' = ' + expect, got === expect, got);
+  }
+  kin('형부 홍길이 있다.', '형부', 'Z>H');
+  kin('처형 홍길이 있다.', '처형', 'W>Z');
+  kin('처남 홍길이 있다.', '처남', 'W>B');
+  kin('아주버님 홍길이 있다.', '아주버님', 'H>B');
+  kin('시누이 홍길이 있다.', '시누이', 'H>Z');
+  kin('고모부 홍길이 있다.', '고모부', 'F>Z>H');
+  kin('외숙모 홍길이 있다.', '외숙모', 'M>B>W');
+  kin('당숙 홍길이 있다.', '당숙', 'F>F>B>S');
+  kin('이종사촌 홍길이 있다.', '이종사촌', 'M>Z>K');
+  kin('외사촌 오빠 홍길이 있다.', '외사촌 오빠', 'M>B>S');
+  kin('증조할머니 홍길이 있다.', '증조할머니', 'F>F>M');
+  kin('진외할아버지 홍길이 있다.', '진외할아버지', 'F>M>F');
+  kin('대고모 홍길이 있다.', '대고모', 'F>F>Z');
+  kin('며느리 홍길이 있다.', '며느리', 'S>W');
+  kin('외손녀 홍길이 있다.', '외손녀', 'D>D');
+  kin('생질 홍길이 있다.', '생질', 'Z>S');
+  kin('올케 홍길이 있다.', '올케', 'B>W');
+  kin('작은어머니 홍길이 있다.', '작은어머니', 'F>B>W');
+  var mdx = parse('형부가 있다.');
+  check('형부 → 내담자 여성 추정', client(mdx).gender === 'F');
+  var mmid = parse('당숙이 있다.');
+  check('중간 사람(할아버지·할아버지의 형제)은 확인 안 된 자리로', mmid.persons.filter(function (p) { return p.implied; }).length >= 3, J(mmid.persons.map(function (p) { return p.label + ':' + p.implied; })));
+  var mdong = parse('동서가 있다.');
+  check('동서 → 고르기(기본 없음)', mdong.choices.length === 1 && mdong.choices[0].value == null);
+  var msam = parse('삼촌이 있다.');
+  check('삼촌 → 기본 아버지의 남자 형제 + 고르기', msam.choices.length === 1 && pathOf(msam, msam.persons.filter(function (p) { return p.label === '삼촌'; })[0]) === 'F>B');
+  var a2 = {}; a2[msam.choices[0].key] = 'M>B';
+  check('삼촌 → 외삼촌으로 고르기', parse('삼촌이 있다.', a2).persons.some(function (p) { return p.label === '외삼촌'; }));
+  var mjo = parse('누나와 남동생이 있다. 조카 홍길이 있다.');
+  check('조카 → 형제가 둘이면 누구의 자녀인지 고르기', mjo.choices.some(function (c) { return c.kind === 'via'; }), J(mjo.choices));
+  check('줄 앞 번호만 지우고 "12세"는 지우지 않기', parse('1. 내담자는 김민수이다.\n12세 딸이 있다.').persons.some(function (p) { return p.age === 12; }));
+  check('"아버지의 누나" = 고모 자리', pathOf(parse('아버지의 누나는 김미영이다.'), parse('아버지의 누나는 김미영이다.').persons.filter(function (p) { return p.name === '김미영'; })[0]) === 'F>Z');
 
   var base = '내담자는 김민수(남, 10세)이다. 아버지와 어머니가 있다.';
   check('문장 한 줄 더하면 사람 추가', parse(base + ' 누나 김지아(13세)가 있다.').persons.length === parse(base).persons.length + 1);
