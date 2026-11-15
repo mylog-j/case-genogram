@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>문장 해석 테스트</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 24px; }
+  .pass { color: #2f6b3a; } .fail { color: #b4232a; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>문장 해석 테스트</h1>
+<p id="summary"></p>
+<ol id="out"></ol>
+<script src="../js/parser.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('out');
+  var pass = 0, fail = 0;
+  function check(name, cond, detail) {
+    var li = document.createElement('li');
+    li.className = cond ? 'pass' : 'fail';
+    li.textContent = (cond ? '통과 ' : '실패 ') + name + (cond ? '' : ' — ' + (detail || ''));
+    out.appendChild(li);
+    cond ? pass++ : fail++;
+  }
+  function role(m, r) { return m.persons.filter(function (p) { return p.role === r; }); }
+  function one(m, r) { return role(m, r)[0]; }
+  function rel(m, a, b, type) {
+    return m.relations.some(function (x) { return x.a === a.id && x.b === b.id && x.type === type; });
+  }
+
+  var example = [
+    '내담자는 김하늘(여, 16세)이다.',
+    '아버지는 김정우(47세)이고, 어머니는 박선영(44세)이다.',
+    '아버지와 어머니는 3년 전에 이혼했다.',
+    '오빠 김바다(19세)가 있고, 남동생 김지후(12세)가 있다.',
+    '외할머니는 2021년에 사망했다.',
+    '하늘이는 어머니와 밀착되어 있다.',
+    '하늘이와 아버지는 갈등이 심하다.',
+    '오빠와 아버지는 연락이 끊겨 단절된 상태이다.'
+  ].join('\n');
+  var m = GenogramParser.parse(example);
+  var c = one(m, 'client'), f = one(m, 'father'), mo = one(m, 'mother');
+  check('내담자 이름·성별·나이', c && c.name === '김하늘' && c.gender === 'F' && c.age === 16, JSON.stringify(c));
+  check('아버지 이름·나이', f && f.name === '김정우' && f.age === 47, JSON.stringify(f));
+  check('어머니 이름·나이', mo && mo.name === '박선영' && mo.age === 44, JSON.stringify(mo));
+  check('부모 이혼', m.unions.parents === 'divorced', m.unions.parents);
+  var sibs = role(m, 'sibling');
+  check('형제 두 명', sibs.length === 2, sibs.length);
+  var bada = sibs.filter(function (s) { return s.name === '김바다'; })[0];
+  var jihu = sibs.filter(function (s) { return s.name === '김지후'; })[0];
+  check('오빠 김바다 19세 남 손위', bada && bada.age === 19 && bada.gender === 'M' && bada.order === 'older', JSON.stringify(bada));
+  check('남동생 김지후 12세 손아래', jihu && jihu.age === 12 && jihu.order === 'younger', JSON.stringify(jihu));
+  var mgm = one(m, 'mgm');
+  check('외할머니 사망, 나이 없음', mgm && mgm.deceased && mgm.age === null, JSON.stringify(mgm));
+  check('어머니는 사망 아님', mo && !mo.deceased);
+  check('하늘-어머니 밀착', rel(m, c, mo, 'fused'));
+  check('하늘-아버지 갈등', rel(m, c, f, 'conflict'));
+  check('오빠-아버지 단절', rel(m, bada, f, 'cutoff'));
+  check('모든 문장 알아들음', m.lines.every(function (l) { return l.status === 'ok'; }),
+    JSON.stringify(m.lines.filter(function (l) { return l.status !== 'ok'; })));
+
+  // 직업 낱말을 이름으로 오해하지 않기
+  var m2 = GenogramParser.parse('아버지는 공무원이다. 어머니는 우울증이 있다. 누나는 고등학생이다.');
+  check('공무원은 이름 아님', !one(m2, 'father').name, one(m2, 'father').name);
+  check('우울증은 이름 아님', !one(m2, 'mother').name, one(m2, 'mother').name);
+  check('고등학생은 이름 아님', !one(m2, 'sibling').name, one(m2, 'sibling').name);
+
+  // 형제 낱말 경계
+  var m3 = GenogramParser.parse('내담자는 형제가 없다.');
+  check('"형제"를 형으로 읽지 않기', role(m3, 'sibling').length === 0);
+
+  // 부모 묶음, 수동 폭력
+  var m4 = GenogramParser.parse('내담자(남, 10세)는 부모와 갈등이 있다. 내담자는 아버지에게 폭행을 당했다.');
+  var c4 = one(m4, 'client'), f4 = one(m4, 'father'), mo4 = one(m4, 'mother');
+  check('부모 묶음 → 아버지·어머니 생성', f4 && mo4);
+  check('내담자-아버지, 내담자-어머니 갈등', rel(m4, c4, f4, 'conflict') && rel(m4, c4, mo4, 'conflict'));
+  check('당했다 → 아버지가 내담자에게 폭력', rel(m4, f4, c4, 'abuse'));
+  check('괄호 없는 내담자 성별·나이', c4.gender === 'M' && c4.age === 10, JSON.stringify(c4));
+
+  // 사망 대상 범위
+  var m5 = GenogramParser.parse('아버지는 할머니가 돌아가신 뒤 술을 자주 마셨다.');
+  check('돌아가신 사람만 사망', one(m5, 'pgm').deceased && !one(m5, 'father').deceased);
+  var m6 = GenogramParser.parse('할아버지와 할머니는 모두 사망했다.');
+  check('"와"로 이어진 두 사람 모두 사망', one(m6, 'pgf').deceased && one(m6, 'pgm').deceased);
+
+  // 오빠 → 내담자 여성
+  var m7 = GenogramParser.parse('오빠가 있다.');
+  check('오빠 → 내담자 여성 추정', one(m7, 'client').gender === 'F');
+
+  // 내담자 결혼·자녀
+  var m8 = GenogramParser.parse('내담자는 이수민(여, 38세)이다. 남편 박준호(40세)와 별거 중이다. 딸 박서연(8세)이 있다.');
+  check('남편 이름', one(m8, 'spouse').name === '박준호', JSON.stringify(one(m8, 'spouse')));
+  check('내담자 부부 별거', m8.unions.client === 'separated', m8.unions.client);
+  check('딸 이름·나이', one(m8, 'child').name === '박서연' && one(m8, 'child').age === 8, JSON.stringify(one(m8, 'child')));
+
+  // 못 알아들은 문장
+  var m9 = GenogramParser.parse('내담자는 김민수이다. 집안 형편이 어렵다.');
+  check('사람 없는 문장 → none', m9.lines[1].status === 'none', JSON.stringify(m9.lines[1]));
+  check('"형편"을 형으로 읽지 않기', role(m9, 'sibling').length === 0);
+
+  var m10 = GenogramParser.parse('아버지와 어머니는 같은 회사에 다닌다.');
+  check('관계 말이 없는 두 사람 → partial 아님(새 사람 생성)', m10.lines[0].status === 'ok');
+  var m11 = GenogramParser.parse('아버지가 있다. 아버지와 어머니가 있다. 아버지와 어머니는 같은 회사에 다닌다.');
+  check('이미 아는 두 사람, 관계 말 없음 → partial', m11.lines[2].status === 'partial', JSON.stringify(m11.lines[2]));
+
+  document.getElementById('summary').textContent = '통과 ' + pass + ' · 실패 ' + fail;
+  document.title = fail ? '실패 ' + fail : '모두 통과';
+  window.__testResult = { pass: pass, fail: fail };
+})();
+</script>
+</body>
+</html>
