@@ -8,7 +8,7 @@
   var F = global.FamilyModel, L = global.GenogramLayout;
   var S = 46, H = S / 2;
   var FONT = "'IBM Plex Sans KR','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif";
-  var INK = '#2B2724', MUTED = '#77706A', PAPER = '#FFFFFF', HOUSE = '#5B8A69', SEL = '#E8877D';
+  var INK = '#2B2724', MUTED = '#77706A', PAPER = '#FFFFFF', HOUSE = '#5B8A69', SEL = '#E8877D', FAINT = '#ADA59D';
 
   var REL_COLOR = {
     close: '#4F8A63', fused: '#6E5FA8', conflict: '#D2554B', hostile: '#A3201F', distant: '#8F8780',
@@ -54,7 +54,8 @@
     var selected = opts.selected && opts.selected.type === 'person' && opts.selected.id === p.id;
     if (selected) out.push('<circle cx="' + x + '" cy="' + y + '" r="' + (h + 14) + '" fill="' + SEL + '" fill-opacity="0.22"/>');
     var fill = p.kind === 'pet' ? '#F3F0EA' : PAPER;
-    out.push(shape(p.kind, p.gender, x, y, size, { fill: fill }));
+    var faint = p.implied && !p.client;
+    out.push(shape(p.kind, p.gender, x, y, size, faint ? { fill: fill, stroke: FAINT, 'stroke-dasharray': '4 3' } : { fill: fill }));
     if (p.client) {
       if (p.gender === 'M') out.push('<rect' + attrs({ x: r(x - h - 5), y: r(y - h - 5), width: size + 10, height: size + 10, fill: 'none', stroke: INK, 'stroke-width': 1.5 }) + '/>');
       else if (p.gender === 'F') out.push('<circle' + attrs({ cx: x, cy: y, r: h + 5, fill: 'none', stroke: INK, 'stroke-width': 1.5 }) + '/>');
@@ -69,7 +70,7 @@
 
     var ny = y + h + (p.client ? 24 : 18);
     var title = p.name || p.label || (p.client ? '내담자' : F.KIND[p.kind]);
-    out.push(text(x, ny, title, halo({ 'font-size': 14, 'font-weight': 600 })));
+    out.push(text(x, ny, title, halo(faint ? { 'font-size': 12.5, 'font-weight': 500, fill: MUTED } : { 'font-size': 14, 'font-weight': 600 })));
     var sub = [];
     if (p.name && p.label) sub.push(p.client ? '내담자' : p.label);
     else if (p.name && p.client) sub.push('내담자');
@@ -97,6 +98,32 @@
       c: { x: (a.x + b.x) / 2 + nx * bend, y: (a.y + b.y) / 2 + ny * bend },
       p2: { x: b.x - ux * trim, y: b.y - uy * trim }
     };
+  }
+  // 기호 가운데에서 (ux,uy) 쪽으로 테두리까지의 거리
+  function edgeDist(p, ux, uy) {
+    var h = symbolSize(p) / 2 + (p.client ? 5 : 0);
+    if (p.kind === 'pet' || (p.kind === 'person' && p.gender === 'U')) return (h + 3) / (Math.abs(ux) + Math.abs(uy) || 1);
+    if (p.kind === 'person' && p.gender === 'M') return h / Math.max(Math.abs(ux), Math.abs(uy), 0.0001);
+    return h;
+  }
+  // 두 기호의 테두리를 바로 잇는 선 (bend 가 있으면 살짝 휜 선, off 만큼 나란히 띄움)
+  function straight(a, b, pa, pb, bend, off) {
+    var dx = b.x - a.x, dy = b.y - a.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
+    var ux = dx / len, uy = dy / len, nx = -uy, ny = ux;
+    var ax = a.x + nx * off, ay = a.y + ny * off, bx = b.x + nx * off, by = b.y + ny * off;
+    var ca = { x: (ax + bx) / 2 + nx * bend, y: (ay + by) / 2 + ny * bend };
+    // 휜 선이면 시작·끝 방향은 조절점 쪽
+    var sa = { x: ca.x - ax, y: ca.y - ay }, sb = { x: ca.x - bx, y: ca.y - by };
+    var la = Math.sqrt(sa.x * sa.x + sa.y * sa.y) || 1, lb = Math.sqrt(sb.x * sb.x + sb.y * sb.y) || 1;
+    sa.x /= la; sa.y /= la; sb.x /= lb; sb.y /= lb;
+    var da = edgeDist(pa, sa.x, sa.y), db = edgeDist(pb, sb.x, sb.y);
+    return { p0: { x: ax + sa.x * da, y: ay + sa.y * da }, c: ca, p2: { x: bx + sb.x * db, y: by + sb.y * db } };
+  }
+  function segDist(p, a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+    var t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2));
+    var x = a.x + t * dx - p.x, y = a.y + t * dy - p.y;
+    return Math.sqrt(x * x + y * y);
   }
   function qp(q, t) {
     var mt = 1 - t;
@@ -188,6 +215,66 @@
     return out.join('');
   }
 
+  // ── 여러 네모를 합친 테두리 (모서리 둥글게) ───────────────
+  function outline(rects, radius) {
+    var xs = [], ys = [];
+    rects.forEach(function (q) { xs.push(q.x0, q.x1); ys.push(q.y0, q.y1); });
+    xs = xs.filter(function (v, i) { return xs.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+    ys = ys.filter(function (v, i) { return ys.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+    var W = xs.length - 1, Hh = ys.length - 1, filled = [];
+    for (var j = 0; j < Hh; j++) {
+      filled.push([]);
+      for (var i = 0; i < W; i++) {
+        var cx = (xs[i] + xs[i + 1]) / 2, cy = (ys[j] + ys[j + 1]) / 2;
+        filled[j].push(rects.some(function (q) { return cx > q.x0 && cx < q.x1 && cy > q.y0 && cy < q.y1; }));
+      }
+    }
+    function f(i, j) { return i >= 0 && j >= 0 && i < W && j < Hh && filled[j][i]; }
+    // 시계 방향 테두리 조각
+    var edges = {};
+    function add(x1, y1, x2, y2) { (edges[x1 + ',' + y1] = edges[x1 + ',' + y1] || []).push([x2, y2]); }
+    for (j = 0; j < Hh; j++) for (i = 0; i < W; i++) {
+      if (!filled[j][i]) continue;
+      if (!f(i, j - 1)) add(xs[i], ys[j], xs[i + 1], ys[j]);
+      if (!f(i + 1, j)) add(xs[i + 1], ys[j], xs[i + 1], ys[j + 1]);
+      if (!f(i, j + 1)) add(xs[i + 1], ys[j + 1], xs[i], ys[j + 1]);
+      if (!f(i - 1, j)) add(xs[i], ys[j + 1], xs[i], ys[j]);
+    }
+    var d = '';
+    var keys = Object.keys(edges);
+    while (keys.length) {
+      var start = keys[0], pts = [], cur = start;
+      var sp = start.split(',').map(Number);
+      pts.push(sp);
+      while (true) {
+        var list = edges[cur];
+        if (!list || !list.length) break;
+        var nx = list.shift();
+        if (!list.length) delete edges[cur];
+        cur = nx[0] + ',' + nx[1];
+        if (cur === start) break;
+        pts.push(nx);
+      }
+      keys = Object.keys(edges);
+      // 같은 방향으로 이어지는 점 줄이기
+      var simple = pts.filter(function (p, k) {
+        var a = pts[(k - 1 + pts.length) % pts.length], b = pts[(k + 1) % pts.length];
+        return !((a[0] === p[0] && p[0] === b[0]) || (a[1] === p[1] && p[1] === b[1]));
+      });
+      if (simple.length < 3) continue;
+      simple.forEach(function (p, k) {
+        var a = simple[(k - 1 + simple.length) % simple.length], b = simple[(k + 1) % simple.length];
+        var la = Math.abs(p[0] - a[0]) + Math.abs(p[1] - a[1]), lb = Math.abs(b[0] - p[0]) + Math.abs(b[1] - p[1]);
+        var rr = Math.min(radius, la / 2, lb / 2);
+        var ax = p[0] + Math.sign(a[0] - p[0]) * rr, ay = p[1] + Math.sign(a[1] - p[1]) * rr;
+        var bx = p[0] + Math.sign(b[0] - p[0]) * rr, by = p[1] + Math.sign(b[1] - p[1]) * rr;
+        d += (k === 0 ? 'M' : 'L') + r(ax) + ' ' + r(ay) + 'Q' + r(p[0]) + ' ' + r(p[1]) + ' ' + r(bx) + ' ' + r(by);
+      });
+      d += 'Z';
+    }
+    return d;
+  }
+
   // ── 범례 ────────────────────────────────────────────────
   function legendSvg(m, used, x0, y0, maxW, color) {
     var items = [];
@@ -201,6 +288,7 @@
     if (used.house) items.push(['house']);
     Object.keys(F.REL).forEach(function (t) { if (used.rel[t]) items.push(['rel', t]); });
     if (used.tentative) items.push(['tentative']);
+    if (used.implied) items.push(['implied']);
 
     var out = [], colW = 140, rowH = 34, per = Math.max(1, Math.floor(maxW / colW));
     out.push(line(x0, y0 - 22, x0 + Math.min(maxW, per * colW) - 20, y0 - 22, { stroke: '#E4E0DB', 'stroke-width': 1 }));
@@ -233,6 +321,9 @@
       } else if (k === 'tentative') {
         g = '<circle cx="' + (cx + 14) + '" cy="' + cy + '" r="8" fill="' + PAPER + '" stroke="' + MUTED + '" stroke-width="1.4"/>' + text(cx + 14, cy + 4, '?', { 'font-size': 11, 'font-weight': 700, fill: MUTED });
         label = '확인 필요';
+      } else if (k === 'implied') {
+        g = shape('person', 'M', cx + s, cy, 18, { stroke: FAINT, 'stroke-dasharray': '3 2', 'stroke-width': 1.6 });
+        label = '확인 안 된 자리';
       }
       out.push(g);
       out.push(text(cx + 40, cy + 5, label, { 'text-anchor': 'start' }));
@@ -255,6 +346,7 @@
       if (p.kind === 'person') used.gender[p.gender] = 1;
       else used.kind[p.kind] = 1;
       if (p.deceased) used.dead = true;
+      if (p.implied && !p.client) used.implied = true;
     });
 
     // 함께 사는 가족 경계 (맨 아래 층)
@@ -272,20 +364,34 @@
           else cur = null;
         });
       });
-      var rects = segs.map(function (seg) {
+      // 함께 사는 사람만 감싸는 칸 + 세대 사이를 잇는 좁은 통로 → 하나로 합친 테두리
+      var boxes = segs.map(function (seg) {
         var xs = seg.map(function (id) { return pos[id].x; }), y = pos[seg[0]].y;
-        return { x0: Math.min.apply(null, xs) - 50, x1: Math.max.apply(null, xs) + 50, y0: y - H - 16, y1: y + H + 46 };
+        return { x0: Math.min.apply(null, xs) - 48, x1: Math.max.apply(null, xs) + 48, y0: y - H - 14, y1: y + H + 44 };
       });
-      var hs = { fill: HOUSE, 'fill-opacity': mono ? 0 : 0.05, stroke: mono ? INK : HOUSE, 'stroke-width': 1.6, 'stroke-dasharray': '5 4' };
-      rects.forEach(function (rc) { out.push('<rect' + attrs(Object.assign({ x: r(rc.x0), y: r(rc.y0), width: r(rc.x1 - rc.x0), height: r(rc.y1 - rc.y0), rx: 16 }, hs)) + '/>'); });
-      for (var i = 1; i < rects.length; i++) {
-        var a = rects[i - 1], b = rects[i];
-        if (a.y0 === b.y0) continue;
-        var up = a.y0 < b.y0 ? a : b, dn = a.y0 < b.y0 ? b : a;
-        var cx = (Math.max(up.x0, dn.x0) + Math.min(up.x1, dn.x1)) / 2;
-        if (Math.max(up.x0, dn.x0) > Math.min(up.x1, dn.x1)) cx = (up.x0 + up.x1) / 2;
-        out.push(line(cx, up.y1, cx, dn.y0, { stroke: hs.stroke, 'stroke-width': 1.6, 'stroke-dasharray': '5 4' }));
-      }
+      var rects = boxes.slice();
+      boxes.forEach(function (lo) {
+        var ups = boxes.filter(function (u) { return u.y1 < lo.y0 && lo.y0 - u.y1 < lay.ROW; });
+        if (!ups.length) return;
+        ups.sort(function (p, q) {
+          var op = Math.min(p.x1, lo.x1) - Math.max(p.x0, lo.x0), oq = Math.min(q.x1, lo.x1) - Math.max(q.x0, lo.x0);
+          return oq - op;
+        });
+        var up = ups[0], ov0 = Math.max(up.x0, lo.x0), ov1 = Math.min(up.x1, lo.x1), w = 14;
+        if (ov1 - ov0 >= 2 * w + 8) {
+          var cx = (ov0 + ov1) / 2;
+          rects.push({ x0: cx - w, x1: cx + w, y0: up.y1 - 1, y1: lo.y0 + 1 });
+        } else {
+          var midY = (up.y1 + lo.y0) / 2;
+          var ux = lo.x0 > up.x1 ? up.x1 - w - 8 : up.x0 + w + 8;
+          var lx = lo.x0 > up.x1 ? lo.x0 + w + 8 : lo.x1 - w - 8;
+          rects.push({ x0: ux - w, x1: ux + w, y0: up.y1 - 1, y1: midY + w });
+          rects.push({ x0: Math.min(ux, lx) - w, x1: Math.max(ux, lx) + w, y0: midY - w, y1: midY + w });
+          rects.push({ x0: lx - w, x1: lx + w, y0: midY - w, y1: lo.y0 + 1 });
+        }
+      });
+      var hs = { fill: HOUSE, 'fill-opacity': mono ? 0 : 0.05, stroke: mono ? INK : HOUSE, 'stroke-width': 1.6, 'stroke-dasharray': '5 4', 'stroke-linejoin': 'round' };
+      out.push(path(outline(rects, 12), hs));
     }
 
     // 결합(부부)선
@@ -386,6 +492,8 @@
 
     // 정서적 관계선
     var pairCount = {}, rels = [];
+    var pairTotal = {};
+    m.relations.forEach(function (rl) { var k = [rl.a, rl.b].sort().join('|'); pairTotal[k] = (pairTotal[k] || 0) + 1; });
     m.relations.forEach(function (rl) {
       var a = pos[rl.a], b = pos[rl.b];
       if (!a || !b) return;
@@ -393,9 +501,15 @@
       if (rl.tentative) used.tentative = true;
       var key = [rl.a, rl.b].sort().join('|');
       var n = pairCount[key] = (pairCount[key] || 0) + 1;
-      var dist = Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
-      var bend = (a.y === b.y ? -1 : 1) * Math.min(48, 14 + dist * 0.12) * (n % 2 ? 1 : -1) * (1 + Math.floor((n - 1) / 2) * 0.7);
-      var q = curve(a, b, bend);
+      // 같은 두 사람 사이 선이 여럿이면 나란히 띄운다
+      var off = (n - (pairTotal[key] + 1) / 2) * 10;
+      // 곧은 선이 다른 사람 기호를 지나가면 그때만 살짝 휜다
+      var bend = 0;
+      m.persons.forEach(function (o) {
+        if (bend || o.id === rl.a || o.id === rl.b || !pos[o.id]) return;
+        if (segDist(pos[o.id], a, b) < symbolSize(o) / 2 + 8) bend = (a.y === b.y ? -1 : 1) * Math.min(56, 26 + Math.abs(b.x - a.x) * 0.08);
+      });
+      var q = straight(a, b, F.person(m, rl.a), F.person(m, rl.b), bend, off);
       var isSel = sel.type === 'rel' && sel.id === rl.id;
       var svg = relationSvg(rl, q, color);
       rels.push('<g data-kind="rel" data-id="' + rl.id + '"' + (rl.tentative ? ' opacity="0.55"' : '') + '>' +

@@ -345,8 +345,19 @@
     return choice.value;
   };
 
+  // 내담자 기준 길로 바꿔서 이름 찾기 (남편의 아버지 → 시아버지)
+  function cpathOf(anchor, path) {
+    if (anchor.client) return path;
+    if (anchor.cpath) return anchor.cpath + '>' + path;
+    return null;
+  }
+  function labelByCpath(cp) {
+    if (!cp) return null;
+    return PATH_LABEL[cp] || PATH_LABEL[cp.replace(/[+\-]/g, '')] || null;
+  }
+
   Parser.prototype.labelOf = function (anchor, path) {
-    var w = anchor.client ? PATH_LABEL[path] : null;
+    var w = labelByCpath(cpathOf(anchor, path));
     if (w) return w;
     var segs = path.split('>'), last = segs[segs.length - 1];
     var prefix = segs.length > 1 ? this.labelOf(anchor, segs.slice(0, -1).join('>')) : (anchor.client ? '' : F.displayName(anchor));
@@ -371,6 +382,12 @@
       var ok = cands.filter(compat);
       var placeholders = ok.filter(function (c) { return c.implied; });
       if (placeholders.length) return placeholders[0];
+      if (isFinal && ok.length) {
+        // 같은 호칭을 다시 부른 경우("새아버지와 적대적이다")는 앞의 사람과 같은 사람
+        if (!name) return ok.filter(function (c) { return c.label === label; })[0] || ok[0];
+        var unnamed = ok.filter(function (c) { return !c.name; });
+        return unnamed.filter(function (c) { return c.label === label; })[0] || unnamed[0] || null;
+      }
       if (!isFinal && ok.length === 1) return ok[0];
       if (!isFinal && ok.length > 1) {
         var v = self.choose({
@@ -464,13 +481,15 @@
       key += '>' + segs[i];
       var isFinal = i === segs.length - 1;
       var subPath = segs.slice(0, i + 1).join('>');
-      var label = isFinal ? (anchor.client ? word : F.displayName(anchor) + '의 ' + word) : this.labelOf(anchor, subPath);
+      var finalLabel = anchor.client ? word : (labelByCpath(cpathOf(anchor, subPath)) || F.displayName(anchor) + '의 ' + word);
+      var label = isFinal ? finalLabel : this.labelOf(anchor, subPath);
       var p = this.step(nodes, segs[i], isFinal, key, label, isFinal ? after.name : '', word, clause);
       if (!p || p === 'PENDING') return p;
+      if (!p.cpath && cpathOf(anchor, subPath)) p.cpath = cpathOf(anchor, subPath);
       nodes.push(p);
     }
     var fin = nodes[nodes.length - 1];
-    if (fin.implied || !fin.label || fin.label === this.labelOf(anchor, path)) { fin.label = anchor.client ? word : F.displayName(anchor) + '의 ' + word; }
+    if (fin.implied || !fin.label || fin.label === this.labelOf(anchor, path)) { fin.label = finalLabel; }
     if (fin.implied) { fin.implied = false; this.effects++; }
     if (!fin.key) fin.key = key;
     var info = segInfo(segs[segs.length - 1]);
@@ -579,6 +598,8 @@
         if (hit) {
           // "셋째 자녀를 임신" 같은 말은 사람을 만들지 않는다
           if (hit.spec.t === 'path' && /^[SDK]$/.test(hit.spec.p) && /^\s*(를|을)?\s*임신/.test(text.slice(i + hit.word.length))) { i += hit.word.length; continue; }
+          // "처남은 없다", "형제가 없다" → 사람을 만들지 않는다
+          if (/^\s*(은|는|이|가|도)?\s*(없|안 계|없으며|없고)/.test(text.slice(i + hit.word.length)) && hit.spec.t !== 'self') { i += hit.word.length; continue; }
           // "1남 2녀 중 장녀"의 '장녀'는 자녀가 아니라 형제 순서
           if (/중\s*$/.test(text.slice(Math.max(0, i - 4), i)) && /^(장남|장녀|차남|차녀|막내)/.test(hit.word)) { i += hit.word.length; continue; }
           var anchor = null, prev = mentions[mentions.length - 1];
@@ -688,8 +709,10 @@
         if (rankWord === '막내') ord = 'older';
         var lab = gg === 'M' ? (ord === 'older' ? (subject.gender === 'F' ? '오빠' : '형') : ord === 'younger' ? '남동생' : '남자 형제')
           : (ord === 'older' ? (subject.gender === 'F' ? '언니' : '누나') : ord === 'younger' ? '여동생' : '여자 형제');
-        var p = self.mk({ key: (subject.key || subject.id) + '>SIB' + gg + n, gender: gg, order: ord, implied: true,
-          label: subject.client ? lab : F.displayName(subject) + '의 ' + lab });
+        var seg = (gg === 'M' ? 'B' : 'Z') + (ord === 'older' ? '+' : ord === 'younger' ? '-' : '');
+        var cp = subject.client ? seg : subject.cpath ? subject.cpath + '>' + seg : null;
+        var p = self.mk({ key: (subject.key || subject.id) + '>SIB' + gg + n, gender: gg, order: ord, implied: true, cpath: cp,
+          label: subject.client ? lab : (labelByCpath(cp) || F.displayName(subject) + '의 ' + lab) });
         F.addLink(m, u.id, p.id, 'bio');
       }
     });

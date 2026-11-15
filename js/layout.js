@@ -134,6 +134,9 @@
 
     function birthCmp(a, b) {
       var pa = byId[a], pb = byId[b];
+      if (pa.kind === 'pregnancy' && pb.kind !== 'pregnancy') return 1;
+      if (pb.kind === 'pregnancy' && pa.kind !== 'pregnancy') return -1;
+      if (pa.rank && pb.rank && pa.rank !== pb.rank) return pa.rank - pb.rank;
       if (pa.age != null && pb.age != null && pa.age !== pb.age) return pb.age - pa.age;
       if (pa.birthYear && pb.birthYear && pa.birthYear !== pb.birthYear) return pa.birthYear - pb.birthYear;
       var oa = pa.order === 'older' ? -1 : pa.order === 'younger' ? 1 : 0;
@@ -168,6 +171,46 @@
       return out;
     }
 
+    // 양가 쪽 점수: 배우자 쪽 가족과 내 쪽 가족, 친가와 외가를 나눠 놓기 위한 값
+    // 여성 내담자: 남편 쪽 -2, 친가 -1, 내담자·부모 0, 외가 +1, 내 형제 +0.5 (남성 내담자는 좌우 반대로 배우자 쪽 +2)
+    var side = {};
+    (function () {
+      var c = client;
+      var spouseSide = c && c.gender === 'M' ? 2 : -2;
+      var hasSpouse = c && (unionsByPerson[c.id] || []).some(function (u) { return u.a && u.b; });
+      persons.forEach(function (p) {
+        var cp = p.client ? '' : p.cpath;
+        if (cp == null) return;
+        if (cp === '') side[p.id] = 0;
+        else if (/^(H|W|SP|EX|CO)/.test(cp)) side[p.id] = spouseSide;
+        else if (/^F/.test(cp)) side[p.id] = -1;
+        else if (/^M/.test(cp)) side[p.id] = 1;
+        else if (/^[BZX]/.test(cp)) side[p.id] = hasSpouse ? -spouseSide / 4 : 0;
+        else side[p.id] = 0;
+      });
+      // 길이 없는 사람(직접 더한 사람)은 가까운 가족의 값을 따른다
+      for (var pass = 0; pass < 4; pass++) persons.forEach(function (p) {
+        if (side[p.id] != null) return;
+        var near = [];
+        var l = linkByChild[p.id];
+        // 형제가 있으면 형제를 따른다 (임신·유산 등)
+        if (l) (kidsByUnion[l.union] || []).forEach(function (k) { if (k !== p.id && side[k] != null) near.push(side[k]); });
+        if (near.length) { side[p.id] = mean(near); return; }
+        if (l) { var u = unionById[l.union]; [u.a, u.b].forEach(function (id) { if (id && side[id] != null) near.push(side[id]); }); }
+        (unionsByPerson[p.id] || []).forEach(function (u) {
+          var q = u.a === p.id ? u.b : u.a;
+          if (q && side[q] != null) near.push(side[q]);
+          (kidsByUnion[u.id] || []).forEach(function (k) { if (side[k] != null) near.push(side[k]); });
+        });
+        if (p.owner && side[p.owner] != null) near.push(side[p.owner]);
+        if (near.length) side[p.id] = mean(near);
+      });
+    })();
+    function sideOf(b) {
+      var v = b.ids.map(function (id) { return side[id]; }).filter(function (x) { return x != null; });
+      return v.length ? mean(v) : 0;
+    }
+
     function orderDown(g) {
       var row = rows[g];
       row.forEach(function (b) {
@@ -176,8 +219,9 @@
         var withLink = b.ids.filter(function (id) { return linkByChild[id]; })[0];
         b.rank = withLink ? rankOf(withLink) : 0;
         b.c = center(b);
+        b.side = sideOf(b);
       });
-      row.sort(function (a, b) { return (a.key - b.key) || (a.rank - b.rank) || (a.c - b.c); });
+      row.sort(function (a, b) { return (a.side - b.side) || (a.key - b.key) || (a.rank - b.rank) || (a.c - b.c); });
       placeSeq(row);
     }
     function orderUp(g) {
@@ -187,8 +231,9 @@
         b.ids.forEach(function (id) { vals = vals.concat(childCenters(id)); });
         b.key = vals.length ? mean(vals) : center(b);
         b.c = center(b);
+        b.side = sideOf(b);
       });
-      row.sort(function (a, b) { return (a.key - b.key) || (a.c - b.c); });
+      row.sort(function (a, b) { return (a.side - b.side) || (a.key - b.key) || (a.c - b.c); });
       placeSeq(row);
     }
     for (var it = 0; it < 4; it++) {
@@ -196,6 +241,29 @@
       for (g = maxG - 1; g >= 0; g--) orderUp(g);
     }
     for (g = 1; g <= maxG; g++) orderDown(g);
+
+    // 양가 나누기: 부부 덩어리에서 왼쪽 사람의 부모 덩어리가 오른쪽 사람의 부모 덩어리보다 왼쪽에 오게
+    // (남편 쪽 가족은 왼쪽, 아내 쪽 가족은 오른쪽 → 형제선이 배우자 밑을 가로지르지 않는다)
+    function parentBlock(id) {
+      var l = linkByChild[id];
+      if (!l) return null;
+      var u = unionById[l.union];
+      var pid = u.a || u.b;
+      return pid ? blockOf[pid] : null;
+    }
+    for (var pass = 0; pass < 2; pass++) {
+      for (g = maxG; g >= 1; g--) {
+        rows[g].forEach(function (b) {
+          for (var i = 0; i + 1 < b.ids.length; i++) {
+            var BL = parentBlock(b.ids[i]), BR = parentBlock(b.ids[i + 1]);
+            if (!BL || !BR || BL === BR || BL.g !== BR.g) continue;
+            var row = rows[BL.g], iL = row.indexOf(BL), iR = row.indexOf(BR);
+            if (iL > iR) { row.splice(iL, 1); row.splice(row.indexOf(BR), 0, BL); placeSeq(row); }
+          }
+        });
+      }
+      for (g = 1; g <= maxG; g++) orderDown(g);
+    }
 
     // ── 4. 자리 맞추기
     function width(b) { return (b.ids.length - 1) * GAP; }

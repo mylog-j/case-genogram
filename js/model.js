@@ -60,6 +60,8 @@
       note: props.note || '',
       source: props.source || '',
       implied: !!props.implied,
+      cpath: props.cpath || null,
+      rank: props.rank || null,
       dx: 0,
       edited: false
     };
