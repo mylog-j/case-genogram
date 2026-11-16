@@ -317,6 +317,21 @@
   check('"작고했다"는 사망', lb(parse('외할아버지는 작고했다.'), '외할아버지').deceased === true);
   check('"아버지와 살고 있다" → 함께 사는 가족', parse('내담자는 아버지와 살고 있다.').household.length === 2);
 
+  // ── 현장 기록 표기 (CL, 부·모, 거주 표현 등)
+  var f1 = parse('Cl.은 초5 여아이며 부, 모, 남동생과 함께 거주.');
+  check('"Cl." → CL, 여아', client(f1).label === 'CL' && client(f1).gender === 'F', J(client(f1)));
+  check('부·모 한 글자 호칭 + 함께 거주 4명', lb(f1, '부') && lb(f1, '모') && f1.household.length === 4);
+  check('"모와 단둘이 거주" → 함께 사는 가족', parse('CL은 12세 남아로 모와 단둘이 거주함.').household.length === 2);
+  check('"부(45)" 나이', lb(parse('부(45)는 일용직임.'), '부').age === 45);
+  check('"부가적인"은 사람 아님', parse('부가적인 지원이 필요함.').persons.length === 0);
+  check('"연락 두절" → 단절', parse('부와는 연락 두절 상태임.').relations.some(function (r) { return r.type === 'cutoff'; }));
+  check('"주양육자" → 내담자를 돌봄', parse('외조모가 주양육자 역할을 하고 있음.').relations.some(function (r) { return r.type === 'care'; }));
+  check('사람 없이 "만 10세 여아." → 내담자', (function (m) { var c = client(m); return c && c.age === 10 && c.gender === 'F'; })(parse('만 10세 여아.')));
+  var f2 = parse('친모와는 이혼 후 왕래 없음.');
+  check('"친모와는 이혼" → 부모 이혼 + 단절', f2.unions.some(function (u) { return u.status === 'divorced' && u.a && u.b; }) && f2.relations.some(function (r) { return r.type === 'cutoff'; }));
+  check('"대상자는 68세 여성" → 대상자 68 여', (function (c) { return c.label === '대상자' && c.age === 68 && c.gender === 'F'; })(client(parse('대상자는 68세 여성으로 독거 중이며 아들과 소원함.'))));
+  check('"부모 모두 CL과 소원" → 두 사람 모두', parse('부모 모두 CL과 소원함.').relations.filter(function (r) { return r.type === 'distant'; }).length === 2);
+
   document.getElementById('summary').textContent = '통과 ' + pass + ' · 실패 ' + fail;
   document.title = fail ? '실패 ' + fail : '모두 통과';
   window.__testResult = { pass: pass, fail: fail };

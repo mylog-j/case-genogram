@@ -22,7 +22,7 @@
   // [낱말, 길 또는 설정]. 같은 길이 여러 번 나오면 맨 앞 낱말이 그 자리의 기본 이름이 된다.
   var KIN = [
     // 부모
-    ['아버지', 'F'], ['아빠', 'F'], ['부친', 'F'], ['친부', 'F'], ['생부', 'F'], ['친아버지', 'F'],
+    ['아버지', 'F'], ['부', 'F'], ['父', 'F'], ['모', 'M'], ['母', 'M'], ['아빠', 'F'], ['부친', 'F'], ['친부', 'F'], ['생부', 'F'], ['친아버지', 'F'],
     ['어머니', 'M'], ['엄마', 'M'], ['모친', 'M'], ['친모', 'M'], ['생모', 'M'], ['친어머니', 'M'],
     ['양아버지', { p: 'F', adopt: true }], ['양부', { p: 'F', adopt: true }],
     ['양어머니', { p: 'M', adopt: true }], ['양모', { p: 'M', adopt: true }],
@@ -132,6 +132,8 @@
 
   var OTHER = [
     ['내담자', { t: 'self' }], ['클라이언트', { t: 'self' }], ['본인', { t: 'self' }],
+    ['CL', { t: 'self' }], ['Cl', { t: 'self' }], ['클라', { t: 'self' }], ['대상자', { t: 'self' }], ['이용자', { t: 'self' }],
+    ['대상아동', { t: 'self' }], ['대상 아동', { t: 'self' }], ['내담아동', { t: 'self' }], ['아동', { t: 'self' }],
     ['반려견', { t: 'pet', species: '반려견' }], ['강아지', { t: 'pet', species: '반려견' }],
     ['반려묘', { t: 'pet', species: '반려묘' }], ['고양이', { t: 'pet', species: '반려묘' }],
     ['반려동물', { t: 'pet', species: '반려동물' }],
@@ -187,7 +189,7 @@
   // ── 관계 표현 ───────────────────────────────────────────
   var CLEAR_REL = [
     ['abuse', /학대|폭력|폭행|때리|때린|때렸|구타|성추행|성폭|추행|폭언|방임|방치|맞았|맞고 ?자|맞는다|맞아 ?왔/],
-    ['cutoff', /단절|연락이 ?끊|연락을 ?끊|왕래가 ?없|왕래하지 ?않|의절|절연/],
+    ['cutoff', /단절|연락이 ?끊|연락을 ?끊|왕래가? ?없|왕래하지 ?않|연락 ?두절|의절|절연/],
     ['hostile', /적대|증오|적개심/],
     ['control', /통제|간섭|대신 ?결정|결정을 ?대신/],
     ['focus', /희생양|탓을 ?돌|책임을 ?돌|탓한다|탓을 ?한/],
@@ -215,9 +217,10 @@
   var PASSIVE_RE = /당했|당함|당하|당해|받았|받음|받고|받는|맞았|맞고|맞는|맞아|로부터|에 ?의해|(방임|방치|학대|폭행)(되었|됐|되어|돼)/;
   var SOURCE_RE = /진술|라고 ?(했|말했|함|한다)|주장/;
   var TENTATIVE_RE = /의심|추정|것 ?같/;
-  var HOUSE_RE = /(함께|같이) ?(살|산다|거주|생활)|한집에|(와|과|랑|이랑|하고)\s*(살고|살며|살아|산다|삽니다|살고있|거주하|거주 ?중|생활하|생활 ?중|지내고|지낸다)/;
+  var HOUSE_RE = /(함께|같이) ?(살|산다|거주|생활)|한집에|(와|과|랑|이랑|하고)\s*(단둘이\s*|둘이\s*|셋이\s*|넷이\s*)?(살고|살며|살아|산다|삽니다|살고있|거주|생활하|생활 ?중|지내고|지낸다)/;
   // 자주 나오는 오타 바로잡기
-  var TYPOS = [[/제혼/g, '재혼'], [/어미니/g, '어머니'], [/아부지/g, '아버지'], [/할머님/g, '할머니'], [/할아버님/g, '할아버지']];
+  // "Cl.은"의 마침표가 문장 끝으로 읽히지 않게
+  var TYPOS = [[/\b(CL|Cl|cl)\.(?=\s*[은는이가과와의도에])/g, 'CL'], [/제혼/g, '재혼'], [/어미니/g, '어머니'], [/아부지/g, '아버지'], [/할머님/g, '할머니'], [/할아버님/g, '할아버지']];
   // 주어 바로 뒤의 성별 낱말 ("클라이언트는 10세 여자아동으로")
   var GENDER_F = /(여자|여성|여아|여학생|소녀|여중생|여고생|여대생)/, GENDER_M = /(남자|남성|남아|남학생|소년|남중생|남고생|남대생)/;
   var HAVE_RE = /(이|가)\s*([가-힣]+\s*)?(한|두|세|네|\d+)?\s*(명)?\s*(씩\s*)?(있|없)/;
@@ -677,6 +680,8 @@
         if (hit) {
           // "셋째 자녀를 임신" 같은 말은 사람을 만들지 않는다
           if (hit.spec.t === 'path' && /^[SDK]$/.test(hit.spec.p) && /^\s*(를|을)?\s*임신/.test(text.slice(i + hit.word.length))) { i += hit.word.length; continue; }
+          // 한 글자 호칭(부·모)이 다른 낱말의 첫 글자일 때("부가적인 지원")는 사람이 아님
+          if (/^[부모]$/.test(hit.word) && /^(가적|가 ?가치|가세|의 ?축적|로서의)/.test(text.slice(i + 1))) { i += 1; continue; }
           // "처남은 없다", "형제가 없다" → 사람을 만들지 않는다
           if (/^\s*(은|는|이|가|도)?\s*(없|안 계|없으며|없고)/.test(text.slice(i + hit.word.length)) && hit.spec.t !== 'self') { i += hit.word.length; continue; }
           // "1남 2녀 중 장녀"의 '장녀'는 자녀가 아니라 형제 순서
@@ -861,7 +866,7 @@
 
     // ── 형제 구성
     if (/\d\s*[남녀]/.test(text) && /중\s*(장남|장녀|차남|차녀|삼남|삼녀|막내|첫째|둘째|셋째|넷째)/.test(text)) {
-      this.composition(text, people[0] || client);
+      this.composition(text, people[0] || client || this.client());
     }
 
     // ── 정서적 관계
@@ -877,6 +882,8 @@
       else if (ambig[2] === '가깝다' && relType === 'close') ambig = null;
     }
     if (ambig) relType = null;
+    // "외조모가 주양육자 역할을 함" → 상대가 없으면 내담자를 돌보는 것으로
+    if (relType === 'care' && people.length === 1 && !people[0].client && client) people = [people[0], client];
 
     if ((relType || ambig) && people.length >= 2) {
       var first = people[0], others = people.slice(1);
@@ -959,6 +966,13 @@
         } else if (us.length) {
           us.sort(function (a1, b1) { return b1.seq - a1.seq; });
           u = us[0];
+        } else if (!p0.client && F.unionsOf(m, p0.id).some(function (uu) { return !F.partnerIn(uu, p0.id); })) {
+          // "친모와는 이혼 후 왕래 없음" → 짝이 비어 있는 부모 자리에 상대를 채워 이혼으로
+          u = F.unionsOf(m, p0.id).filter(function (uu) { return !F.partnerIn(uu, p0.id); })[0];
+          var isPar = client && F.parentUnionOf(m, client.id) === u;
+          var mate = this.mk({ key: (p0.key || p0.id) + '>MATE', gender: p0.gender === 'M' ? 'F' : p0.gender === 'F' ? 'M' : 'U', implied: true,
+            label: isPar ? (p0.gender === 'F' ? '아버지' : '어머니') : F.displayName(p0) + '의 배우자' });
+          if (u.a === p0.id) u.b = mate.id; else u.a = mate.id;
         } else if (p0.client) {
           var ex = this.mk({ key: 'C>SP', gender: p0.gender === 'M' ? 'F' : p0.gender === 'F' ? 'M' : 'U', implied: true, label: '배우자' });
           u = F.addUnion(m, p0.id, ex.id, 'married');
@@ -1089,6 +1103,11 @@
       }
     }
 
+    // "만 10세 여아." 처럼 사람 없이 나이·성별만 쓴 마디는 내담자 정보
+    if (!parts.length && (/\d{1,3}\s*(세|살)(?!에)/.test(text) || GENDER_F.test(text) || GENDER_M.test(text)) && !/[남녀]\s*\d?\s*[녀]?\s*중/.test(text)) {
+      var cc = this.client();
+      parts = [cc]; people = [cc];
+    }
     // ── 한 사람만 나오는 마디의 나이·성별·출생연도
     if (people.length === 1 && parts.length === 1) {
       var p1 = people[0];
