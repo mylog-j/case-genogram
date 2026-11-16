@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'">
 <title>한글 문장으로 만드는 사례 가계도</title>
 <meta name="description" content="사례를 한글 문장으로 적으면 사례개념화 가계도를 바로 그려 주는 무료 도구. 가입 없이 쓰고, 입력한 내용은 저장하지 않아요.">
 <meta property="og:title" content="한글 문장으로 만드는 사례 가계도">
@@ -294,8 +294,8 @@
     <h2 id="safety-title">입력한 문장은 이 브라우저 밖으로 나가지 않아요.</h2>
     <div class="safety-grid">
       <div>
-        <h3>보내는 기능이 없어요</h3>
-        <p>문장 해석과 가계도 그리기는 모두 지금 보고 계신 브라우저 안에서 일어나요. 이 페이지에는 입력한 내용을 서버로 보내는 기능이 없고, 브라우저 보안 설정으로 외부 전송도 막아 두었어요.</p>
+        <h3>사례 문장은 보내지 않아요</h3>
+        <p>문장 해석과 가계도 그리기는 모두 지금 보고 계신 브라우저 안에서 일어나요. 입력한 사례 문장과 가계도는 어디로도 보내지 않아요. 사이트를 고치는 데 쓰려고 들어온 경로·만들기와 내려받기 횟수 같은 익명 통계와, 직접 남겨 주신 후기만 받아요.</p>
       </div>
       <div>
         <h3>저장하지 않아요</h3>
@@ -387,10 +387,18 @@
     </div>
   </section>
 
-  <!-- 후기 자리 -->
-  <section class="reviews" aria-labelledby="reviews-title">
-    <h2 id="reviews-title">써 본 분들의 이야기</h2>
-    <p>아직 실린 후기가 없어요. 실제로 써 본 분들의 후기가 생기면 이곳에 싣습니다.</p>
+  <!-- 써 본 분들의 이야기 -->
+  <section class="reviews" id="reviews" aria-labelledby="reviews-title">
+    <div class="reviews-head">
+      <div>
+        <h2 id="reviews-title">써 본 분들의 이야기 <span class="hand-note hn-inline" aria-hidden="true">누르기만 하면 돼요</span></h2>
+        <p>좋았던 점을 고르면 메모로 붙어요. 아쉬웠던 점은 사이트를 고칠 때 참고해요.</p>
+      </div>
+      <button class="btn btn-ink" type="button" id="review-open">+ 후기 남기기</button>
+    </div>
+    <div class="memo-board" id="memo-board" aria-live="polite">
+      <div class="memo memo-empty"><p>첫 후기를 남겨 주세요</p><span class="memo-sign">— 사례 가계도</span></div>
+    </div>
   </section>
 
   <!-- 자주 묻는 것 -->
@@ -403,7 +411,7 @@
       </details>
       <details>
         <summary>입력한 사례 내용이 어딘가에 저장되나요?</summary>
-        <div><p>저장하지 않아요. 문장 해석과 그리기는 모두 브라우저 안에서 일어나고, 입력한 내용을 서버로 보내는 기능이 없어요. 창을 닫으면 사라지니, 필요하면 PNG 이미지로 내려받아 두세요.</p></div>
+        <div><p>저장하지 않아요. 문장 해석과 그리기는 모두 브라우저 안에서 일어나고, 입력한 사례 문장과 가계도는 어디로도 보내지 않아요. 사이트가 받는 것은 익명 이용 통계(들어온 경로, 만들기·내려받기 횟수, 고르신 직업)와 직접 남기신 후기뿐이에요. 창을 닫으면 사라지니, 필요하면 PNG 이미지로 내려받아 두세요.</p></div>
       </details>
       <details>
         <summary>어떤 기호로 그려지나요?</summary>
@@ -432,6 +440,62 @@
   </section>
 </main>
 
+<dialog class="editor sheet" id="review-dialog" aria-labelledby="review-title">
+  <form method="dialog" id="review-form">
+    <div class="editor-head">
+      <div><h3 id="review-title">후기 남기기</h3><p>이름이나 연락처는 받지 않아요.</p></div>
+      <button class="icon-btn" type="button" id="review-close" aria-label="후기 창 닫기"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+    </div>
+    <div class="editor-body">
+      <fieldset class="pick">
+        <legend>어떤 일을 하시나요? <span>(선택)</span></legend>
+        <div class="pick-row">
+          <label><input type="radio" name="rjob" value="상담사"><span>상담사</span></label>
+          <label><input type="radio" name="rjob" value="사회복지사"><span>사회복지사</span></label>
+          <label><input type="radio" name="rjob" value="학생"><span>학생</span></label>
+          <label><input type="radio" name="rjob" value="수련생"><span>수련생</span></label>
+          <label><input type="radio" name="rjob" value="기타"><span>기타</span></label>
+        </div>
+        <input class="pick-other" type="text" id="rjob-other" maxlength="30" placeholder="직업명 (30자)" hidden>
+      </fieldset>
+      <fieldset class="pick">
+        <legend>좋았던 점 <span>(여러 개 골라도 돼요)</span></legend>
+        <div class="pick-list" id="like-list"></div>
+        <input class="pick-other" type="text" id="like-other" maxlength="40" placeholder="기타 한 줄 (40자, 예: 발표 자료에 쓰기 좋았어요)">
+      </fieldset>
+      <fieldset class="pick">
+        <legend>아쉬웠던 점 <span>(관리자만 봐요)</span></legend>
+        <textarea id="review-dislike" maxlength="300" rows="3" placeholder="예: 원하는 호칭을 못 알아들었어요, 배치가 어색했어요"></textarea>
+      </fieldset>
+      <input type="text" name="website" id="review-website" tabindex="-1" autocomplete="off" class="hp" aria-hidden="true">
+      <p class="review-msg" id="review-msg" aria-live="polite"></p>
+    </div>
+    <div class="editor-foot">
+      <button class="btn btn-ink btn-sm" type="button" id="review-send">남기기</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="editor sheet" id="job-dialog" aria-labelledby="job-title">
+  <div class="editor-head">
+    <div><h3 id="job-title">어떤 일을 하시나요?</h3><p>더 나은 도구를 만들기 위한 익명 통계로만 써요. 한 번만 물어봐요.</p></div>
+  </div>
+  <div class="editor-body">
+    <div class="pick-row">
+      <label><input type="radio" name="job" value="상담사"><span>상담사</span></label>
+      <label><input type="radio" name="job" value="사회복지사"><span>사회복지사</span></label>
+      <label><input type="radio" name="job" value="학생"><span>학생</span></label>
+      <label><input type="radio" name="job" value="수련생"><span>수련생</span></label>
+      <label><input type="radio" name="job" value="기타"><span>기타</span></label>
+    </div>
+    <div id="job-other-wrap" hidden><input class="pick-other" type="text" id="job-other" maxlength="30" placeholder="직업명 (30자)"></div>
+  </div>
+  <div class="editor-foot">
+    <button class="btn-text" type="button" id="job-skip">건너뛰기</button>
+    <button class="btn btn-ink btn-sm" type="button" id="job-send">보내고 내려받기</button>
+  </div>
+</dialog>
+
 <dialog class="editor" id="editor" aria-labelledby="editor-title">
   <div class="editor-head">
     <div>
@@ -457,6 +521,7 @@
   </div>
 </footer>
 
+<script src="js/track.js"></script>
 <script src="js/model.js"></script>
 <script src="js/parser.js"></script>
 <script src="js/layout.js"></script>
@@ -464,5 +529,6 @@
 <script src="js/export.js"></script>
 <script src="js/app.js"></script>
 <script src="js/hero.js"></script>
+<script src="js/reviews.js"></script>
 </body>
 </html>

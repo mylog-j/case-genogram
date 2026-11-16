@@ -1,0 +1,52 @@
+:root { --paper: #FBFAF7; --ink: #2B2724; --muted: #6F6862; --line: #E6E1DB; --sage: #E6EEE6; --sage-ink: #3F6B4C; --lav: #EEEBF5; --lav-ink: #54498A; --coral: #F4A79F; --coral-ink: #A8463D; }
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.6 'IBM Plex Sans KR', 'Malgun Gothic', sans-serif; word-break: keep-all; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; }
+h1 { font-size: 22px; margin: 0; }
+h1 span { display: block; font-size: 13px; font-weight: 500; color: var(--muted); }
+h2 { font-size: 16px; margin: 0 0 12px; }
+h3 { font-size: 14px; margin: 16px 0 8px; color: var(--muted); }
+.btn { min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--ink); background: var(--ink); color: #fff; font: 600 15px inherit; cursor: pointer; }
+.btn.ghost { background: #fff; color: var(--ink); border-color: var(--line); }
+.btn.small { min-height: 36px; padding: 0 14px; font-size: 13px; }
+.login { max-width: 360px; margin: 10vh auto 0; display: grid; gap: 10px; background: #fff; padding: 24px; border-radius: 20px; border: 1px solid var(--line); }
+.login input, .utm-form input, .utm-out input { min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; font: 16px inherit; width: 100%; }
+.err { color: var(--coral-ink); min-height: 1.4em; margin: 0; font-size: 14px; }
+.period { display: flex; gap: 6px; margin-bottom: 16px; }
+.period button { min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font: 500 14px inherit; cursor: pointer; }
+.period button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.totals { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.total { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+.total b { display: block; font-size: 28px; line-height: 1.1; }
+.total span { font-size: 13px; color: var(--muted); }
+.card { background: #fff; border: 1px solid var(--line); border-radius: 20px; padding: 18px 20px; margin-bottom: 14px; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.card-head h2 { margin: 0; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.grid2 .card { margin: 0; }
+.hint { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+.bars { display: flex; align-items: flex-end; gap: 2px; height: 140px; padding-top: 18px; }
+.bar { flex: 1; background: var(--coral); border-radius: 3px 3px 0 0; min-height: 2px; position: relative; }
+.bar:hover::after { content: attr(data-tip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 6px; white-space: nowrap; }
+.rows { display: grid; gap: 6px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 46px; gap: 8px; align-items: center; font-size: 14px; }
+.row .track { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: #F1EEE9; overflow: hidden; }
+.row .fill { height: 100%; background: var(--sage-ink); }
+.row b { text-align: right; }
+.empty { font-size: 14px; color: var(--muted); }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.list li { padding: 12px 14px; border-radius: 12px; background: #FAF8F5; display: grid; gap: 6px; }
+.list .meta { font-size: 12.5px; color: var(--muted); }
+.list .text { font-size: 15px; }
+.status { display: flex; gap: 6px; }
+.status button { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font: 500 13px inherit; cursor: pointer; }
+.status button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.utm-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.utm-form label { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+.utm-out { display: flex; gap: 8px; margin-top: 10px; }
+@media (max-width: 760px) {
+  .totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2, .utm-form { grid-template-columns: 1fr; }
+}

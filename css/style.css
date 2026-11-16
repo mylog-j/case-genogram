@@ -472,9 +472,50 @@ textarea:focus { outline: none; border-color: var(--lavender-ink); box-shadow: 0
 .chart svg { width: 100%; height: auto; max-height: 72vh; }
 .empty { text-align: center; color: var(--muted); display: grid; gap: 16px; justify-items: center; padding: 40px 0; }
 
-/* 후기 자리 */
-.reviews { padding-bottom: 72px !important; }
-.reviews p { margin-top: 12px; color: var(--muted); }
+/* 써 본 분들의 이야기 — 메모장 */
+.reviews { padding-bottom: 88px !important; }
+.reviews-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 26px; }
+.reviews-head p { margin-top: 10px; color: var(--muted); }
+.memo-board { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 22px 18px; }
+.memo-board::before { content: ''; position: absolute; z-index: -1; left: 10%; top: -30px; width: 380px; height: 240px; border-radius: 50%; background: var(--coral-soft); filter: blur(56px); opacity: .8; }
+.memo {
+  position: relative; min-height: 132px; padding: 24px 18px 16px; border-radius: 6px 6px 14px 6px;
+  box-shadow: 0 10px 24px -14px rgba(43, 39, 36, .35); transform: rotate(-1.5deg); display: flex; flex-direction: column; justify-content: space-between; gap: 10px;
+}
+.memo:nth-child(2n) { transform: rotate(1.4deg); }
+.memo:nth-child(3n) { transform: rotate(-.6deg); }
+.memo::before { content: ''; position: absolute; top: -9px; left: 50%; width: 64px; height: 18px; margin-left: -32px; background: rgba(255, 255, 255, .7); border: 1px solid rgba(43, 39, 36, .06); transform: rotate(-4deg); }
+.memo p { font-family: var(--hand); font-size: 25px; line-height: 1.2; color: var(--ink); }
+.memo-sign { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+.tint-coral { background: #FDE9E5; } .tint-sage { background: #E6EFE6; } .tint-lav { background: #ECE9F6; } .tint-paper { background: #FFFBF1; }
+.memo-empty { background: #FFFBF1; }
+
+/* 후기·직업 창 */
+.sheet { width: min(560px, calc(100vw - 32px)); }
+.sheet form { display: contents; }
+.pick { border: 0; margin: 0 0 18px; padding: 0; }
+.pick legend { font-weight: 600; font-size: 15px; margin-bottom: 10px; padding: 0; }
+.pick legend span { font-weight: 400; font-size: 13px; color: var(--muted); }
+.pick-row, .pick-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.pick-list { flex-direction: column; }
+.pick-row label, .pick-list label { cursor: pointer; }
+.pick-row input, .pick-list input { position: absolute; opacity: 0; pointer-events: none; }
+.pick-row span, .pick-list span {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--white); font-size: 14.5px;
+}
+.pick-list span { border-radius: 12px; width: 100%; }
+.pick-list span::before { content: ''; width: 16px; height: 16px; margin-right: 10px; border-radius: 4px; border: 1.5px solid #B8AFA6; flex: none; }
+.pick-row input:checked + span, .pick-list input:checked + span { background: var(--ink); color: #fff; border-color: var(--ink); }
+.pick-list input:checked + span::before { border-color: #fff; background: #fff no-repeat center/12px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7.5l2.5 2.5L11 4.5' fill='none' stroke='%232B2724' stroke-width='2.2'/%3E%3C/svg%3E"); }
+.pick-row input:focus-visible + span, .pick-list input:focus-visible + span { outline: 3px solid var(--lavender-ink); outline-offset: 2px; }
+.pick-other, .pick textarea {
+  width: 100%; margin-top: 10px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px;
+  background: #FDFCFA; font: 400 15px var(--sans); color: var(--ink); resize: vertical;
+}
+.pick-other[hidden] { display: none; }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.review-msg { min-height: 1.5em; font-size: 14px; color: var(--sage-ink); }
 
 /* 자주 묻는 것 */
 .faq { padding-bottom: 96px !important; }

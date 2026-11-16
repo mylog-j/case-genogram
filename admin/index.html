@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'">
+<title>관리자 · 사례 가계도</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<main class="wrap">
+  <header class="top">
+    <h1>관리자 <span>한글 문장으로 만드는 사례 가계도</span></h1>
+    <button class="btn ghost" type="button" id="logout" hidden>나가기</button>
+  </header>
+
+  <form class="login" id="login">
+    <label for="pw">관리자 비밀번호</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit">들어가기</button>
+    <p class="err" id="err" aria-live="polite"></p>
+  </form>
+
+  <section id="dash" hidden>
+    <div class="period" role="group" aria-label="기간">
+      <button type="button" data-days="7">7일</button>
+      <button type="button" data-days="30" aria-pressed="true">30일</button>
+      <button type="button" data-days="90">90일</button>
+    </div>
+
+    <div class="totals" id="totals"></div>
+
+    <article class="card">
+      <h2>날짜별 방문</h2>
+      <div class="bars" id="bars"></div>
+    </article>
+
+    <div class="grid2">
+      <article class="card"><h2>들어온 경로</h2><div id="channels"></div></article>
+      <article class="card"><h2>UTM 출처 / 매체</h2><div id="utm"></div><h3>캠페인</h3><div id="campaigns"></div></article>
+      <article class="card"><h2>쓰는 분들의 직업</h2><p class="hint">처음 내려받을 때 고른 답 (건너뛴 분은 빠져요)</p><div id="jobs"></div><h3>기타로 적은 직업</h3><div id="jobOthers"></div></article>
+      <article class="card"><h2>좋았던 점 (전체 기간)</h2><div id="likes"></div></article>
+    </div>
+
+    <article class="card">
+      <div class="card-head"><h2>기타 한 줄 후기</h2><span class="hint">'게시'를 누른 것만 사이트 메모장에 붙어요</span></div>
+      <ul class="list" id="others"></ul>
+    </article>
+
+    <article class="card">
+      <div class="card-head"><h2>아쉬웠던 점</h2><button class="btn ghost small" type="button" id="csv">후기 CSV 내려받기</button></div>
+      <ul class="list" id="dislikes"></ul>
+    </article>
+
+    <article class="card">
+      <h2>UTM 링크 만들기</h2>
+      <p class="hint">홍보할 곳마다 다른 링크를 쓰면, 어디서 들어왔는지 '들어온 경로'에서 볼 수 있어요.</p>
+      <div class="utm-form">
+        <label>출처 <input id="u-src" placeholder="예: kakao, instagram, cafe"></label>
+        <label>매체 <input id="u-med" placeholder="예: chat, post, banner"></label>
+        <label>캠페인 <input id="u-cmp" placeholder="예: 2026_winter"></label>
+      </div>
+      <div class="utm-out"><input id="u-link" readonly aria-label="만든 링크"><button class="btn small" type="button" id="u-copy">복사</button></div>
+    </article>
+  </section>
+</main>
+<script src="/admin/admin.js"></script>
+</body>
+</html>

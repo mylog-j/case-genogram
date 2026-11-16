@@ -719,6 +719,7 @@
     timer = setTimeout(function () {
       if (typingSnap) { state.undo.push(typingSnap); state.redo = []; typingSnap = snapshot(); }
       fromText(false);
+      if (state.model.persons.length && !state.createdSent && window.SiteStats) { state.createdSent = true; window.SiteStats.event('create'); }
     }, 250);
   });
   $('reparse').addEventListener('click', act(function () { fromText(true); }));
@@ -752,6 +753,7 @@
   toggle('opt-legend', 'legend');
 
   function loadExample() {
+    if (window.SiteStats) window.SiteStats.event('example');
     checkpoint();
     text.value = EXAMPLE.join('\n');
     state.answers = {};
@@ -776,7 +778,34 @@
       btn.textContent = label;
     });
   }
-  $('dl-png').addEventListener('click', function () { busy(this, X.png); });
+  // 내려받기: 처음 한 번만 직업을 묻는다 (건너뛰어도 바로 내려받아진다)
+  function asked() { try { return localStorage.getItem('job-asked') === '1'; } catch (e) { return true; } }
+  function markAsked() { try { localStorage.setItem('job-asked', '1'); } catch (e) {} }
+  var jobDlg = $('job-dialog');
+  function download() {
+    busy($('dl-png'), X.png);
+    if (window.SiteStats) window.SiteStats.event('download');
+  }
+  $('dl-png').addEventListener('click', function () {
+    if (asked() || !jobDlg || !jobDlg.showModal) { download(); return; }
+    jobDlg.querySelectorAll('input[name=job]').forEach(function (r) { r.checked = false; });
+    $('job-other').value = '';
+    $('job-other-wrap').hidden = true;
+    jobDlg.showModal();
+  });
+  if (jobDlg) {
+    jobDlg.addEventListener('change', function (e) {
+      if (e.target.name === 'job') $('job-other-wrap').hidden = e.target.value !== '기타';
+    });
+    $('job-skip').addEventListener('click', function () { markAsked(); jobDlg.close(); download(); });
+    $('job-send').addEventListener('click', function () {
+      var picked = jobDlg.querySelector('input[name=job]:checked');
+      if (picked && window.SiteStats) window.SiteStats.event('job', { job: picked.value, job_other: picked.value === '기타' ? $('job-other').value.trim().slice(0, 30) : '' });
+      markAsked();
+      jobDlg.close();
+      download();
+    });
+  }
 
   // 확대·축소
   var ZOOMS = [0.5, 0.67, 0.8, 1, 1.25, 1.5, 2];
