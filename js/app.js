@@ -785,6 +785,7 @@
   function download() {
     busy($('dl-png'), X.png);
     if (window.SiteStats) window.SiteStats.event('download');
+    document.dispatchEvent(new CustomEvent('genogram:downloaded'));
   }
   $('dl-png').addEventListener('click', function () {
     if (asked() || !jobDlg || !jobDlg.showModal) { download(); return; }

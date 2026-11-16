@@ -98,5 +98,27 @@
       .catch(function (err) { msg.textContent = err.message; btn.disabled = false; });
   });
 
+  // PNG를 처음 내려받은 뒤 한 번만, 작은 후기 안내를 띄운다
+  var toast = $('review-toast'), toastTimer;
+  function nudged() { try { return localStorage.getItem('review-nudged') === '1'; } catch (e) { return true; } }
+  function hideToast() {
+    clearTimeout(toastTimer);
+    toast.classList.remove('show');
+    setTimeout(function () { toast.hidden = true; }, 260);
+  }
+  if (toast) {
+    document.addEventListener('genogram:downloaded', function () {
+      if (nudged()) return;
+      try { localStorage.setItem('review-nudged', '1'); } catch (e) {}
+      setTimeout(function () {
+        toast.hidden = false;
+        setTimeout(function () { toast.classList.add('show'); }, 30);
+        toastTimer = setTimeout(hideToast, 12000);
+      }, 900);
+    });
+    $('toast-close').addEventListener('click', hideToast);
+    $('toast-review').addEventListener('click', function () { hideToast(); $('review-open').click(); });
+  }
+
   load();
 })();
