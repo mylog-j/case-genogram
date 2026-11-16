@@ -8,7 +8,7 @@
   var F = global.FamilyModel, L = global.GenogramLayout;
   var S = 46, H = S / 2;
   var FONT = "'IBM Plex Sans KR','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif";
-  var INK = '#2B2724', MUTED = '#77706A', PAPER = '#FFFFFF', HOUSE = '#5B8A69', SEL = '#E8877D', FAINT = '#ADA59D';
+  var INK = '#2B2724', MUTED = '#4F4842', PAPER = '#FFFFFF', HOUSE = '#5B8A69', SEL = '#E8877D', FAINT = '#ADA59D';
 
   var GREEN = '#24874F', RED = '#D93A2B', BLUE = '#2F5FD0', PURPLE = '#7454C2', BROWN = '#C47A30', TEAL = '#2A7C8E';
   var REL_COLOR = {
@@ -72,11 +72,11 @@
 
     var ny = y + h + (p.client ? 24 : 18);
     var title = p.name || p.label || (p.client ? '내담자' : F.KIND[p.kind]);
-    out.push(text(x, ny, title, halo(faint ? { 'font-size': 12.5, 'font-weight': 500, fill: MUTED } : { 'font-size': 14, 'font-weight': 600 })));
+    out.push(text(x, ny, title, halo(faint ? { 'font-size': 13, 'font-weight': 500, fill: MUTED } : { 'font-size': 14, 'font-weight': 600 })));
     var sub = [];
-    if (p.name && p.label) sub.push(p.client ? '내담자' : p.label);
-    else if (p.name && p.client) sub.push('내담자');
-    if (sub.length) { ny += 16; out.push(text(x, ny, sub.join(''), halo({ 'font-size': 12, fill: MUTED }))); }
+    if (p.name && p.label) sub.push(p.client ? (p.label || '내담자') : p.label);
+    else if (p.name && p.client) sub.push(p.label || '내담자');
+    if (sub.length) { ny += 16; out.push(text(x, ny, sub.join(''), halo({ 'font-size': 13, 'font-weight': 500, fill: MUTED }))); }
     var extra = [];
     if (p.genderLabel) extra.push(p.genderLabel);
     if (p.kind !== 'person' && p.kind !== 'pet' && p.birthYear) extra.push(p.birthYear);
@@ -84,7 +84,7 @@
     if (p.deathYear) extra.push('사망 ' + p.deathYear);
     if (p.source) extra.push(p.source);
     if (p.note) extra.push(p.note.length > 14 ? p.note.slice(0, 13) + '…' : p.note);
-    if (extra.length) { ny += 15; out.push(text(x, ny, extra.join(' · '), halo({ 'font-size': 11, fill: MUTED }))); }
+    if (extra.length) { ny += 15; out.push(text(x, ny, extra.join(' · '), halo({ 'font-size': 12.5, 'font-weight': 500, fill: MUTED }))); }
 
     return '<g data-kind="person" data-id="' + p.id + '" tabindex="0" role="button" aria-label="' + esc(title) + ' 편집">' +
       '<rect x="' + r(x - 46) + '" y="' + r(y - h - 10) + '" width="92" height="' + r(ny - y + h + 16) + '" fill="transparent"/>' +
@@ -224,7 +224,7 @@
       var lab = t === 'abuse' ? (F.ABUSE_SUB[rel.sub] || '') : t === 'control' ? '통제' : t === 'focus' ? '초점' : t === 'care' ? '돌봄' : '애착';
       if (lab) out.push(midLabel(q, lab, c));
     }
-    if (rel.note) { var np = qp(q, 0.5); out.push(text(np.x, np.y + 16, rel.note, halo({ 'font-size': 10.5, fill: MUTED }))); }
+    if (rel.note) { var np = qp(q, 0.5); out.push(text(np.x, np.y + 16, rel.note, halo({ 'font-size': 12, 'font-weight': 500, fill: MUTED }))); }
     if (rel.tentative) {
       var tp = qp(q, 0.5);
       out.push('<circle cx="' + r(tp.x) + '" cy="' + r(tp.y) + '" r="8" fill="' + PAPER + '" stroke="' + c + '" stroke-width="1.4"/>');
@@ -296,7 +296,8 @@
   // ── 범례 ────────────────────────────────────────────────
   function legendSvg(m, used, x0, y0, maxW, color) {
     var items = [];
-    items.push(['client']);
+    var cl = F.clientOf(m);
+    items.push(['client', (cl && cl.label) || '내담자']);
     ['M', 'F', 'U'].forEach(function (g) { if (used.gender[g]) items.push(['g', g]); });
     if (used.dead) items.push(['dead']);
     Object.keys(used.kind).forEach(function (k) { items.push(['kind', k]); });
@@ -316,7 +317,7 @@
       var k = it[0];
       if (k === 'client') {
         g = '<rect x="' + cx + '" y="' + (cy - s) + '" width="18" height="18" fill="none" stroke="' + INK + '" stroke-width="1.6"/><rect x="' + (cx - 3) + '" y="' + (cy - s - 3) + '" width="24" height="24" fill="none" stroke="' + INK + '" stroke-width="1"/>';
-        label = '내담자';
+        label = it[1] || '내담자';
       } else if (k === 'g') { g = shape('person', it[1], cx + s, cy, 18, { 'stroke-width': 1.6 }); label = { M: '남성', F: '여성', U: '성별 모름' }[it[1]]; }
       else if (k === 'dead') { g = shape('person', 'M', cx + s, cy, 18, { 'stroke-width': 1.6 }) + path('M' + (cx - 2) + ' ' + (cy - 11) + 'L' + (cx + 20) + ' ' + (cy + 11) + 'M' + (cx + 20) + ' ' + (cy - 11) + 'L' + (cx - 2) + ' ' + (cy + 11), { 'stroke-width': 1.6 }); label = '사망'; }
       else if (k === 'kind') {
@@ -356,7 +357,7 @@
     opts = opts || {};
     var lay = L.layout(m);
     if (!lay) return null;
-    var pos = lay.pos, out = [], hits = [];
+    var pos = lay.pos, out = [], hits = [], ulabels = [];
     var mono = !!opts.mono;
     var color = function (t) { return mono ? INK : (REL_COLOR[t] || INK); };
     var used = { gender: {}, kind: {}, union: {}, link: {}, rel: {}, dead: false, twin: false, house: false, tentative: false };
@@ -435,7 +436,15 @@
         var lab = [];
         if (u.start) lab.push((u.status === 'cohabit' ? '동거 ' : '결혼 ') + u.start + (u.status === 'cohabit' && !u.end ? '~' : ''));
         if (u.end) lab.push((u.status === 'divorced' ? '이혼 ' : u.status === 'separated' ? '별거 ' : '') + u.end);
-        if (lab.length) out.push(text((left.x + mx) / 2, by - 7, lab.join(' · '), halo({ 'font-size': 11, fill: MUTED })));
+        if (lab.length) {
+          // 부부선 가운데 위에. 선보다 길면 두 줄로 나눠 옆 부부의 글자와 겹치지 않게
+          var one = lab.join(' · '), room = right.x - left.x - 24;
+          var lines = lab.length === 2 && one.length * 7.6 > room ? lab : [one];
+          var lx = mx - (u.status === 'divorced' || u.status === 'separated' ? 10 : 0);
+          lines.forEach(function (s, li) {
+            ulabels.push(text(lx, by - 12 - (lines.length - 1 - li) * 16, s, halo({ 'font-size': 12.5, 'font-weight': 500, fill: MUTED })));
+          });
+        }
         hits.push('<g data-kind="union" data-id="' + u.id + '"><path d="M' + r(left.x) + ' ' + r(by) + 'H' + r(right.x) + '" stroke="transparent" stroke-width="16" fill="none"/></g>');
         umid[u.id] = { x: mx, y: by };
       } else if (A || B) {
@@ -560,7 +569,7 @@
     return {
       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + r(minX) + ' ' + r(minY) + ' ' + r(w) + ' ' + r(h) + '" width="' + r(w) + '" height="' + r(h) + '" role="img" aria-label="가계도">' +
         '<rect x="' + r(minX) + '" y="' + r(minY) + '" width="' + r(w) + '" height="' + r(h) + '" fill="' + PAPER + '"/>' +
-        title + genLabels + out.join('') + hits.join('') + rels.join('') + syms.join('') + leg.svg + '</svg>',
+        title + genLabels + out.join('') + hits.join('') + rels.join('') + ulabels.join('') + syms.join('') + leg.svg + '</svg>',
       width: w, height: h, layout: lay
     };
   }

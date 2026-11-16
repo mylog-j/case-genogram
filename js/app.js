@@ -302,7 +302,7 @@
   function personOptions() {
     return state.model.persons.filter(function (p) { return p.kind === 'person'; }).map(function (p) {
       var n = F.displayName(p);
-      return [p.id, p.name && p.label ? n + ' (' + (p.client ? '내담자' : p.label) + ')' : n];
+      return [p.id, p.name && p.label ? n + ' (' + (p.client ? (p.label || '내담자') : p.label) + ')' : n];
     });
   }
 
@@ -395,7 +395,7 @@
       var sym = el('span', { className: 'roster-sym' });
       sym.innerHTML = miniSymbol(p);
       var meta = [];
-      if (p.name && (p.label || p.client)) meta.push(p.client ? '내담자' : p.label);
+      if (p.name && (p.label || p.client)) meta.push(p.client ? (p.label || '내담자') : p.label);
       if (p.age != null) meta.push(p.age + '세');
       if (p.deceased) meta.push('사망' + (p.deathYear ? ' ' + p.deathYear : ''));
       if (p.implied && !p.client) meta.push('확인 안 된 자리');
@@ -481,7 +481,7 @@
   function personForm(box, p) {
     if (!p) return;
     var m = state.model;
-    head(box, F.displayName(p), p.client ? '내담자' : p.label || '');
+    head(box, F.displayName(p), p.client ? (p.label || '내담자') : p.label || '');
     var grid = el('div', { className: 'form-grid' });
     grid.appendChild(field('이름', input('text', p.name, function (v) { p.name = v.trim().slice(0, 20); changed(p); }, { maxlength: 20, placeholder: '가명이나 머리글자' })));
     grid.appendChild(field('관계 이름', input('text', p.label, function (v) { p.label = v.trim().slice(0, 20); changed(p); }, { maxlength: 20, placeholder: '예: 고모, 새아버지' })));
