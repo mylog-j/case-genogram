@@ -19,7 +19,7 @@ create table if not exists public.reviews (
   job text, job_other text,
   likes text[] not null default '{}',
   like_other text,
-  other_status text not null default '대기' check (other_status in ('대기','게시','숨김')),
+  other_status text not null default '게시' check (other_status in ('대기','게시','숨김')),
   dislike text
 );
 alter table public.visits enable row level security;

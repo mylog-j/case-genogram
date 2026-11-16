@@ -91,7 +91,7 @@
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
         if (!res.ok) throw new Error(res.j.error || '저장하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
-        msg.textContent = '고마워요! 고른 후기는 바로 붙고, 기타 한 줄은 확인 후 실려요.';
+        msg.textContent = '고마워요! 메모장에 바로 붙었어요.';
         load();
         setTimeout(function () { dlg.close(); }, 1600);
       })

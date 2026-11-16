@@ -641,4 +641,5 @@ textarea:focus { outline: none; border-color: var(--lavender-ink); box-shadow: 0
 }
 @media (max-width: 380px) {
   .credit { flex-direction: column; gap: 8px; }
-}
+}.contact { margin-top: 14px; font-size: 14px; color: var(--muted); }
+.contact a { color: var(--ink); font-weight: 600; text-decoration-color: var(--line); text-underline-offset: 3px; }

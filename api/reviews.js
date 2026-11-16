@@ -34,6 +34,7 @@ module.exports = async (req, res) => {
       likes,
       like_other: clean(b.like_other, 40),
       dislike: clean(b.dislike, 300),
+      other_status: '게시', // 기타 한 줄도 바로 게시 (관리자가 숨김 가능)
     };
     if (!row.likes.length && !row.like_other && !row.dislike) return res.status(400).json({ error: '좋았던 점이나 아쉬웠던 점을 하나 이상 남겨 주세요.' });
     const r = await sb('reviews', { method: 'POST', body: JSON.stringify(row) });
