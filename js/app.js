@@ -215,7 +215,9 @@
     var warns = lines.filter(function (l) { return l.status === 'warn'; });
     var status = $('parse-status');
     if (!lines.length) status.textContent = '';
-    else if (!bad.length && !state.choices.some(function (c) { return !c.value; })) status.textContent = '적은 내용을 모두 가계도에 반영했어요.';
+    else if (!bad.length && !state.choices.some(function (c) { return !c.value; })) status.textContent = warns.length
+      ? '적은 내용을 가계도에 반영했어요. 서로 맞지 않는 부분이 ' + warns.length + '곳 있어 아래에 적어 두었어요.'
+      : '적은 내용을 모두 가계도에 반영했어요.';
     else if (bad.length) status.textContent = '가계도에 넣지 못한 부분이 ' + bad.length + '곳 있어요. 아래를 확인해 주세요.';
     else status.textContent = '고를 것이 남아 있어요.';
     var ul = $('issues');

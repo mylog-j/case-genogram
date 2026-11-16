@@ -346,6 +346,14 @@
   check('딸로 고르면 오빠 한 명', client(c2).gender === 'F' && c2.persons.length === 2 && lb(c2, '오빠'));
   check('"2남 중 장남"은 카드 없이 남동생 한 명', (function (m) { return !m.choices.length && m.persons.length === 2 && lb(m, '남동생'); })(parse('2남 중 장남.')));
 
+  // ── "2남 1녀 중 차남" + 누나·남동생을 따로 적은 경우 → 남자 형제는 남동생 하나
+  var sb = parse('남편 B는 50세 남성으로 2남 1녀 중 차남이다.\n남편에게는 누나 한 명과 남동생 한 명이 있다.');
+  var sbH = lb(sb, '남편'), sbS = F.siblingsOf(sb, sbH.id);
+  check('형제 구성 + 직접 적은 형제 → 남자 1·여자 1', sbS.filter(function (s) { return s.gender === 'M'; }).length === 1 && sbS.filter(function (s) { return s.gender === 'F'; }).length === 1, J(sbS.map(function (s) { return s.label; })));
+  check('차남인데 남동생만 → 순서 확인 안내', sb.lines.some(function (l) { return l.status === 'warn' && /차남/.test(l.hint); }));
+  var sb2 = parse('남편 B는 2남 1녀 중 장남이다.\n남편에게는 누나 한 명과 남동생 한 명이 있다.');
+  check('장남 + 누나·남동생 → 안내 없이 맞게', !sb2.lines.some(function (l) { return l.status === 'warn'; }) && F.siblingsOf(sb2, lb(sb2, '남편').id).length === 2);
+
   document.getElementById('summary').textContent = '통과 ' + pass + ' · 실패 ' + fail;
   document.title = fail ? '실패 ' + fail : '모두 통과';
   window.__testResult = { pass: pass, fail: fail };

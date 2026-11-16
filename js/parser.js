@@ -1229,6 +1229,15 @@
       var sibs = F.siblingsOf(m, p.id).filter(function (s) { return s.kind === 'person'; });
       ['M', 'F'].forEach(function (g) {
         var n = sibs.filter(function (s) { return s.gender === g; }).length;
+        // 직접 적은 형제가 있으면, 형제 구성으로 미리 만든 빈자리부터 지운다
+        // ("2남 1녀 중 차남" + "남동생이 있다" → 형 자리 대신 남동생)
+        var extra = sibs.filter(function (s) { return s.gender === g && s.implied && s.key && s.key.indexOf('>SIB' + g) >= 0; });
+        while (n > p.sibDeclared[g] && extra.length) {
+          var gone = extra.pop();
+          F.removePerson(m, gone.id);
+          sibs.splice(sibs.indexOf(gone), 1);
+          n--;
+        }
         if (n > p.sibDeclared[g]) {
           m.lines.push({ text: p.sibDeclared.text, status: 'warn',
             hint: F.displayName(p) + '의 ' + (g === 'M' ? '남자' : '여자') + ' 형제가 형제 구성(' + p.sibDeclared.text.match(/\d\s*남\s*\d?\s*녀?|\d\s*녀/)[0] + ')보다 많이 적혀 있어요. 구체적으로 적은 형제를 따랐어요.' });
@@ -1243,6 +1252,13 @@
       if (older.length > p.rank - 1) {
         m.lines.push({ text: F.displayName(p) + ' — ' + p.compWord, status: 'warn',
           hint: F.displayName(p) + '은(는) ' + p.compWord + '인데 손위 ' + (p.gender === 'F' ? '여자' : '남자') + ' 형제(' + older.map(function (s) { return s.label; }).join(', ') + ')가 적혀 있어요. 적힌 대로 그렸으니 확인해 주세요.' });
+      } else if (older.length < p.rank - 1 && p.rank < 99) {
+        // "차남"인데 형이 없고 남동생만 적힌 경우
+        var younger = F.siblingsOf(m, p.id).filter(function (s) { return s.gender === p.gender && s.order === 'younger'; });
+        if (younger.length) {
+          m.lines.push({ text: F.displayName(p) + ' — ' + p.compWord, status: 'warn',
+            hint: F.displayName(p) + '은(는) ' + p.compWord + '인데 손위 ' + (p.gender === 'F' ? '여자' : '남자') + ' 형제는 없고 ' + younger.map(function (s) { return s.label; }).join(', ') + '이(가) 적혀 있어요. 적힌 대로 그렸으니 형제 순서를 확인해 주세요.' });
+        }
       }
       delete p.compWord;
     });
