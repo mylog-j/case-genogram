@@ -354,6 +354,15 @@
   var sb2 = parse('남편 B는 2남 1녀 중 장남이다.\n남편에게는 누나 한 명과 남동생 한 명이 있다.');
   check('장남 + 누나·남동생 → 안내 없이 맞게', !sb2.lines.some(function (l) { return l.status === 'warn'; }) && F.siblingsOf(sb2, lb(sb2, '남편').id).length === 2);
 
+  // ── 같은 사례, "이북" 오타 (2026-11-16 실제 입력)
+  var tb = parse('클라이언트는 10세 여자아동으로 아버지, 새어머니 6세이북 남동생과 살고있음\n' +
+    '클라이언트의 아버지는 클라이언트 어머니와 2009년에결혼하였다가 2012년에 이혼하고 2013년 제혼함\n' +
+    '남동생은 부모와 친밀한 관계를 갖고 있음\n' +
+    '클라이언트의 아버지와 새어미니는 보통 관계를 갖고 있으며 부부 모두 아들과 친밀한 편임');
+  check('"이북 남동생"(오타) → 이복 남동생 6세, 아들을 따로 만들지 않음', lb(tb, '이복 남동생') && lb(tb, '이복 남동생').age === 6 && !lb(tb, '아들') && tb.persons.length === 5, J(tb.persons.map(function (p) { return p.label; })));
+  var tc = parse('아버지는 2013년 새어머니와 재혼했다. 남동생이 있다. 아버지와 새어머니는 보통 관계이며 부부 모두 아들과 친밀하다.');
+  check('부부 사이 자녀가 없으면 한쪽의 아들(남동생)로', !lb(tc, '아들') && tc.relations.filter(function (r) { return r.type === 'close'; }).length === 2, J(tc.persons.map(function (p) { return p.label; })));
+
   document.getElementById('summary').textContent = '통과 ' + pass + ' · 실패 ' + fail;
   document.title = fail ? '실패 ' + fail : '모두 통과';
   window.__testResult = { pass: pass, fail: fail };

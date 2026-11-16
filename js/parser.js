@@ -220,7 +220,7 @@
   var HOUSE_RE = /(함께|같이) ?(살|산다|거주|생활)|한집에|(와|과|랑|이랑|하고)\s*(단둘이\s*|둘이\s*|셋이\s*|넷이\s*)?(살고|살며|살아|산다|삽니다|살고있|거주|생활하|생활 ?중|지내고|지낸다)/;
   // 자주 나오는 오타 바로잡기
   // "Cl.은"의 마침표가 문장 끝으로 읽히지 않게
-  var TYPOS = [[/\b(CL|Cl|cl)\.(?=\s*[은는이가과와의도에])/g, 'CL'], [/제혼/g, '재혼'], [/어미니/g, '어머니'], [/아부지/g, '아버지'], [/할머님/g, '할머니'], [/할아버님/g, '할아버지']];
+  var TYPOS = [[/\b(CL|Cl|cl)\.(?=\s*[은는이가과와의도에])/g, 'CL'], [/제혼/g, '재혼'], [/이북(\s?)(형|오빠|누나|언니|남동생|여동생|동생|형제|남매|자매)/g, '이복$1$2'], [/이뷰(\s?)(형|오빠|누나|언니|남동생|여동생|동생|형제)/g, '이부$1$2'], [/어미니/g, '어머니'], [/아부지/g, '아버지'], [/할머님/g, '할머니'], [/할아버님/g, '할아버지']];
   // 주어 바로 뒤의 성별 낱말 ("클라이언트는 10세 여자아동으로")
   var GENDER_F = /(여자|여성|여아|여학생|소녀|여중생|여고생|여대생)/, GENDER_M = /(남자|남성|남아|남학생|소년|남중생|남고생|남대생)/;
   var HAVE_RE = /(이|가)\s*([가-힣]+\s*)?(한|두|세|네|\d+)?\s*(명)?\s*(씩\s*)?(있|없)/;
@@ -718,6 +718,19 @@
             var cg = segInfo(hit.spec.p).g;
             var ck = F.childrenOf(m, prev.couple.id).filter(function (q) { return q.kind === 'person' && !q.client && (cg === 'U' || q.gender === cg || q.gender === 'U'); });
             var cp = ck[0];
+            // 그 부부 사이 자녀가 없으면, 두 사람 중 한 사람의 자녀 가운데 맞는 사람이 하나뿐일 때 그 사람
+            // ("아버지·새어머니 부부 모두 아들과 친밀" → 아버지의 아들인 남동생)
+            if (!cp) {
+              var pk = [];
+              [prev.couple.a, prev.couple.b].forEach(function (pid) {
+                F.unionsOf(m, pid).forEach(function (un) {
+                  F.childrenOf(m, un.id).forEach(function (q) {
+                    if (q.kind === 'person' && !q.client && pk.indexOf(q) < 0 && (cg === 'U' || q.gender === cg || q.gender === 'U')) pk.push(q);
+                  });
+                });
+              });
+              if (pk.length === 1) cp = pk[0];
+            }
             if (!cp) {
               cp = this.mk({ key: (F.person(m, prev.couple.a).key || prev.couple.a) + '+' + (F.person(m, prev.couple.b).key || prev.couple.b) + '>' + hit.spec.p, gender: cg, label: hit.word });
               F.addLink(m, prev.couple.id, cp.id, 'bio');
