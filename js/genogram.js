@@ -78,6 +78,7 @@
     else if (p.name && p.client) sub.push(p.label || '내담자');
     if (sub.length) { ny += 16; out.push(text(x, ny, sub.join(''), halo({ 'font-size': 13, 'font-weight': 500, fill: MUTED }))); }
     var extra = [];
+    if (p.grade) extra.push(p.grade);
     if (p.genderLabel) extra.push(p.genderLabel);
     if (p.kind !== 'person' && p.kind !== 'pet' && p.birthYear) extra.push(p.birthYear);
     else if (p.birthYear) extra.push(p.birthYear + '년생');

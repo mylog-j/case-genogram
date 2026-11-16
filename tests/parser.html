@@ -332,6 +332,20 @@
   check('"대상자는 68세 여성" → 대상자 68 여', (function (c) { return c.label === '대상자' && c.age === 68 && c.gender === 'F'; })(client(parse('대상자는 68세 여성으로 독거 중이며 아들과 소원함.'))));
   check('"부모 모두 CL과 소원" → 두 사람 모두', parse('부모 모두 CL과 소원함.').relations.filter(function (r) { return r.type === 'distant'; }).length === 2);
 
+  // ── 학년 → 나이, 성별 모를 때 형제 구성
+  var g1 = client(parse('Cl.은 초5 여아이며 부, 모와 거주.'));
+  check('"초5" → 11세 + 학년 표시', g1.age === 11 && g1.grade === '초5' && g1.gender === 'F', J(g1));
+  check('"(8세, 초1)" → 적힌 나이 우선', lb(parse('남동생(8세, 초1)이 있음.'), '남동생').age === 8);
+  check('"초2 여동생" → 8세', lb(parse('초2 여동생이 있다.'), '여동생').age === 8);
+  check('"중학교 2학년 남학생" → 14세 남', (function (c) { return c.age === 14 && c.grade === '중2' && c.gender === 'M'; })(client(parse('내담자는 중학교 2학년 남학생이다.'))));
+  check('"치료 중 2년째"는 학년 아님', parse('어머니는 치료 중 2년째이다.').persons.every(function (p) { return !p.grade; }));
+  var c1 = parse('1남 1녀 중 막내.');
+  check('성별 모를 때 "1남 1녀 중 막내" → 아들/딸 고르기 카드', c1.choices.some(function (c) { return /^compg/.test(c.key); }) && c1.persons.length === 1);
+  var a3 = {}; a3[c1.choices.filter(function (c) { return /^compg/.test(c.key); })[0].key] = 'F';
+  var c2 = parse('1남 1녀 중 막내.', a3);
+  check('딸로 고르면 오빠 한 명', client(c2).gender === 'F' && c2.persons.length === 2 && lb(c2, '오빠'));
+  check('"2남 중 장남"은 카드 없이 남동생 한 명', (function (m) { return !m.choices.length && m.persons.length === 2 && lb(m, '남동생'); })(parse('2남 중 장남.')));
+
   document.getElementById('summary').textContent = '통과 ' + pass + ' · 실패 ' + fail;
   document.title = fail ? '실패 ' + fail : '모두 통과';
   window.__testResult = { pass: pass, fail: fail };

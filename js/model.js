@@ -54,6 +54,7 @@
       name: props.name || '',
       label: props.label || '',
       age: props.age == null ? null : props.age,
+      grade: props.grade || '',
       birthYear: props.birthYear || null,
       deathYear: props.deathYear || null,
       deceased: !!props.deceased,

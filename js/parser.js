@@ -259,8 +259,29 @@
     for (var i = 0; i < STOPWORDS.length; i++) if (s.indexOf(STOPWORDS[i]) === 0) return true;
     return /(있|없|했|한다|하다|이다|된다|되었|였다|었다)/.test(s);
   }
+  // 학년 → 만 나이(그해 생일이 지난 나이): 초n = n+6, 중n = n+12, 고n = n+15
+  var GRADE_RE = /(초등학교|초등학생|초등|중학교|중학생|고등학교|고등학생|고교)\s*(\d)\s*학년|(?:^|[^가-힣\d])(초|중|고)\s?(\d)(?![\d년세살명])/;
+  function gradeOf(s) {
+    var g = GRADE_RE.exec(s || '');
+    if (!g) return null;
+    var lv = (g[1] || g[3])[0], n = +(g[2] || g[4]);
+    var max = lv === '초' ? 6 : 3;
+    if (n < 1 || n > max) return null;
+    return { grade: lv + n, age: n + (lv === '초' ? 6 : lv === '중' ? 12 : 15), index: g.index };
+  }
+  function applyGrade(p, s) {
+    var gr = gradeOf(s);
+    if (!gr) return false;
+    var ch = false;
+    if (!p.grade) { p.grade = gr.grade; ch = true; }
+    if (p.age == null) { p.age = gr.age; ch = true; }
+    return ch;
+  }
+
   function parseParens(content) {
     var attrs = {};
+    var gp = gradeOf(content);
+    if (gp) { attrs.grade = gp.grade; attrs.gradeAge = gp.age; }
     content.split(/[,\s/·]+/).forEach(function (t) {
       if (!t) return;
       if (/^(남|남성|남자|M|m)$/.test(t)) attrs.gender = 'M';
@@ -330,6 +351,8 @@
     if (a.gender && p.gender !== a.gender) { p.gender = a.gender; ch = true; }
     if (a.genderLabel && p.genderLabel !== a.genderLabel) { p.genderLabel = a.genderLabel; ch = true; }
     if (a.age != null && p.age !== a.age) { p.age = a.age; ch = true; }
+    if (a.grade && !p.grade) { p.grade = a.grade; ch = true; }
+    if (a.gradeAge != null && a.age == null && p.age == null) { p.age = a.gradeAge; ch = true; }
     if (a.birthYear && p.birthYear !== a.birthYear) { p.birthYear = a.birthYear; ch = true; }
     if (a.deceased && !p.deceased) { p.deceased = true; ch = true; }
     return ch;
@@ -724,6 +747,9 @@
           var ageBefore = /(?:^|[^\d])(\d{1,3})\s*(?:세|살)\s*(?:인\s*)?$/.exec(text.slice(Math.max(0, i - 12), i));
           var persons = this.resolve(anchor, hit, after, text);
           if (ageBefore && persons.length === 1 && persons[0].age == null) { persons[0].age = +ageBefore[1]; this.effects++; }
+          // "초1 남동생", "중2인 딸": 학년이 앞에 온다
+          var gradeBefore = /(?:^|[^가-힣\d])((?:초|중|고)\s?\d|(?:초등학교|초등|중학교|고등학교)\s*\d\s*학년)\s*(?:인\s*)?$/.exec(text.slice(Math.max(0, i - 14), i));
+          if (gradeBefore && persons.length === 1 && persons[0].kind === 'person' && applyGrade(persons[0], gradeBefore[1])) this.effects++;
           var end = Math.max(after.end, i + hit.word.length);
           var mention = { start: i, end: end, persons: persons, word: hit.word, pending: !!persons.pending, anchorFrom: anchor,
             self: hit.spec.t === 'self', couple: persons.couple || null };
@@ -811,6 +837,18 @@
     var sons = +(mm[1] || 0), daughters = +(mm[2] || 0), rankWord = mm[3];
     var total = sons + daughters;
     var g = /남$/.test(rankWord) ? 'M' : /녀$/.test(rankWord) ? 'F' : subject.gender;
+    // 성별을 모르는데 "1남 1녀 중 막내"처럼 아들·딸이 섞여 있으면 → 고르기
+    if (g === 'U' && sons && !daughters) g = 'M';
+    else if (g === 'U' && daughters && !sons) g = 'F';
+    else if (g === 'U') {
+      var gv = this.choose({
+        key: 'compg|' + (subject.key || subject.id), kind: 'kin', text: text,
+        question: F.displayName(subject) + '은(는) ' + mm[0].replace(/\s*중.*$/, '') + ' 중 아들인가요, 딸인가요?',
+        options: [['M', '아들'], ['F', '딸']], def: null
+      });
+      if (!gv) return 'PENDING';
+      g = gv;
+    }
     if (subject.gender === 'U' && g !== 'U') subject.gender = g;
     var rankMap = { 장남: 1, 장녀: 1, 차남: 2, 차녀: 2, 삼남: 3, 삼녀: 3, 첫째: 1, 둘째: 2, 셋째: 3, 넷째: 4 };
     var sameRank = /[남녀]$/.test(rankWord) ? rankMap[rankWord] : null;   // 같은 성별 안에서의 순서
@@ -866,7 +904,7 @@
 
     // ── 형제 구성
     if (/\d\s*[남녀]/.test(text) && /중\s*(장남|장녀|차남|차녀|삼남|삼녀|막내|첫째|둘째|셋째|넷째)/.test(text)) {
-      this.composition(text, people[0] || client || this.client());
+      if (this.composition(text, people[0] || client || this.client()) === 'PENDING') pendingChoice = true;
     }
 
     // ── 정서적 관계
@@ -1095,7 +1133,11 @@
         // 나이 바로 뒤가 다음 사람이면 그 사람의 나이 ("어머니는 40세 딸이…")
         var tailOnly = am2 && nextM && /^\s*$/.test(body.slice(am2[0].length)) && body === seg.slice(sm[0].length);
         if (am2 && !tailOnly && sp1.age == null) { sp1.age = +am2[1]; this.effects++; }
-        var gw = /^(?:만\s*)?(?:\d{1,3}\s*(?:세|살)\s*)?(?:의\s*)?([가-힣]+)/.exec(body);
+        var gb = gradeOf(body);
+        // 학년 바로 뒤가 다음 사람이면 그 사람의 학년 ("어머니는 초3 딸이…")
+        var gTail = gb && nextM && body === seg.slice(sm[0].length) && /^\s*$/.test(body.slice(gb.index).replace(/^[^가-힣\d]?(초등학교|초등학생|초등|중학교|중학생|고등학교|고등학생|고교|초|중|고)\s*\d\s*(학년)?/, ''));
+        if (gb && gb.index <= 6 && !gTail && applyGrade(sp1, body)) this.effects++;
+        var gw = /^(?:만\s*)?(?:\d{1,3}\s*(?:세|살)\s*,?\s*)?(?:(?:초|중|고)\s?\d\s*|(?:초등학교|초등|중학교|고등학교)\s*\d\s*학년\s*)?(?:의\s*)?([가-힣]+)/.exec(body);
         if (gw && !/(형제|자매|친구|동생|아이를|아들|딸)/.test(gw[1])) {
           if (GENDER_F.test(gw[1]) && gw[1].search(GENDER_F) === 0 && sp1.gender !== 'F') { sp1.gender = 'F'; this.effects++; }
           else if (GENDER_M.test(gw[1]) && gw[1].search(GENDER_M) === 0 && sp1.gender !== 'M') { sp1.gender = 'M'; this.effects++; }
@@ -1104,7 +1146,7 @@
     }
 
     // "만 10세 여아." 처럼 사람 없이 나이·성별만 쓴 마디는 내담자 정보
-    if (!parts.length && (/\d{1,3}\s*(세|살)(?!에)/.test(text) || GENDER_F.test(text) || GENDER_M.test(text)) && !/[남녀]\s*\d?\s*[녀]?\s*중/.test(text)) {
+    if (!parts.length && (/\d{1,3}\s*(세|살)(?!에)/.test(text) || gradeOf(text) || GENDER_F.test(text) || GENDER_M.test(text)) && !/[남녀]\s*\d?\s*[녀]?\s*중/.test(text)) {
       var cc = this.client();
       parts = [cc]; people = [cc];
     }
@@ -1113,6 +1155,7 @@
       var p1 = people[0];
       var am = /(?:^|[^\d])(\d{1,3})\s*(?:세|살)(?!에)/.exec(text);
       if (am && p1.age == null && !/\d\s*[남녀]\s*\d?\s*[녀]?\s*중/.test(text.slice(0, am.index))) { p1.age = parseInt(am[1], 10); this.effects++; }
+      if (applyGrade(p1, text)) this.effects++;
       var by = /(\d{4})\s*년생/.exec(text);
       if (by && !p1.birthYear) { p1.birthYear = +by[1]; this.effects++; }
       if (/(^|\s)(남자|남성|남학생|남아|소년|남중생|남고생|남대생)/.test(text) && !/(남자|여자) ?(형제|친구)/.test(text) && p1.gender !== 'M') { p1.gender = 'M'; this.effects++; }

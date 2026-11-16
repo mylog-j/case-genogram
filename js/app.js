@@ -66,7 +66,7 @@
         c = F.addPerson(cur, p);
         c.key = p.key;
       } else if (!c.edited) {
-        ['name', 'label', 'age', 'birthYear', 'deathYear', 'genderLabel'].forEach(function (k) { if ((c[k] == null || c[k] === '') && p[k] != null && p[k] !== '') c[k] = p[k]; });
+        ['name', 'label', 'age', 'grade', 'birthYear', 'deathYear', 'genderLabel'].forEach(function (k) { if ((c[k] == null || c[k] === '') && p[k] != null && p[k] !== '') c[k] = p[k]; });
         if (c.gender === 'U' && p.gender !== 'U') c.gender = p.gender;
         if (p.deceased) c.deceased = true;
         if (p.client && !cur.persons.some(function (q) { return q.client; })) c.client = true;
@@ -494,6 +494,7 @@
     grid.appendChild(field('성별', select([['M', '남성'], ['F', '여성'], ['U', '모름·기타']], p.gender, function (v) { checkpoint(); p.gender = v; changed(p); })));
     grid.appendChild(field('성별 표현(선택)', input('text', p.genderLabel, function (v) { p.genderLabel = v.trim().slice(0, 12); changed(p); }, { maxlength: 12, placeholder: '예: 논바이너리' })));
     grid.appendChild(field('나이', input('number', p.age, function (v) { p.age = numOrNull(v, 0, 120); changed(p); }, { min: 0, max: 120 })));
+    if (p.kind === 'person') grid.appendChild(field('학년', input('text', p.grade, function (v) { p.grade = v.trim().slice(0, 10); changed(p); }, { maxlength: 10, placeholder: '예: 초5, 중2' })));
     grid.appendChild(field(p.kind === 'person' || p.kind === 'pet' ? '출생 연도' : '연도', input('number', p.birthYear, function (v) { p.birthYear = numOrNull(v, 1850, 2100); changed(p); }, { min: 1850, max: 2100 })));
     grid.appendChild(field('사망 연도', input('number', p.deathYear, function (v) { p.deathYear = numOrNull(v, 1850, 2100); if (p.deathYear) p.deceased = true; changed(p); }, { min: 1850, max: 2100 })));
     grid.appendChild(field('정보 출처', select([['', '표시 안 함'], ['내담자 진술', '내담자 진술'], ['가족 진술', '가족 진술'], ['기관 기록', '기관 기록'], ['확인됨', '확인됨']], p.source, function (v) { checkpoint(); p.source = v; changed(p); })));
