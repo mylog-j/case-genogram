@@ -60,13 +60,27 @@
     return;
   }
 
-  var started = false;
+  // 다 그려지면 잠시 보여 준 뒤 처음부터 다시 (화면에 보일 때만 움직인다)
+  var started = false, visible = true, HOLD = 4500;
   function start() {
     if (started) return;
     started = true;
     var i = 0;
+    function restart() {
+      if (!visible || document.hidden) { setTimeout(restart, 800); return; }
+      list.classList.add('fading');
+      box.classList.add('fading');
+      setTimeout(function () {
+        list.innerHTML = '';
+        box.innerHTML = '';
+        list.classList.remove('fading', 'done');
+        box.classList.remove('fading');
+        i = 0;
+        setTimeout(nextSentence, 400);
+      }, 450);
+    }
     function nextSentence() {
-      if (i >= EXAMPLE.length) { list.classList.add('done'); return; }
+      if (i >= EXAMPLE.length) { list.classList.add('done'); setTimeout(restart, HOLD); return; }
       var s = EXAMPLE[i], li = document.createElement('li'), k = 0;
       li.className = 'typing';
       list.appendChild(li);
@@ -88,7 +102,8 @@
   }
   if ('IntersectionObserver' in window) {
     var io = new IntersectionObserver(function (es) {
-      if (es.some(function (e) { return e.isIntersecting; })) { start(); io.disconnect(); }
+      visible = es.some(function (e) { return e.isIntersecting; });
+      if (visible) start();
     }, { threshold: 0.25 });
     io.observe(box);
   } else start();

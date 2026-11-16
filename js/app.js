@@ -194,7 +194,7 @@
     var g = graphic(false);
     var chart = $('chart');
     if (!g) {
-      chart.innerHTML = '<div class="empty"><p>사례 문장을 적으면 여기에 가계도가 그려져요.</p>' +
+      chart.innerHTML = '<div class="empty"><span class="hand-note hn-empty" aria-hidden="true">여기에 그려져요 ↓</span><p>사례 문장을 적으면 여기에 가계도가 그려져요.</p>' +
         '<button class="btn btn-ghost btn-sm" type="button" data-load-example>예시 넣기</button></div>';
     } else chart.innerHTML = g.svg;
     // 확대·축소: zoom 이 없으면 칸에 맞춤
