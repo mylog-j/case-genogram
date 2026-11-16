@@ -145,7 +145,7 @@ main { overflow-x: clip; }
 .card-sym { width: 108px; padding: 12px 10px 10px; display: grid; justify-items: center; gap: 4px; }
 .card-sym svg { width: 56px; height: 36px; fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .card-sym svg .coral { stroke: #D2554B; }
-.card-sym svg .lav { stroke: #6E5FA8; }
+.card-sym svg .lav { stroke: #D93A2B; }
 .card-sym span { font-size: 13px; font-weight: 600; color: var(--muted); }
 .is-arriving .card { animation: card-in .9s cubic-bezier(.2, .8, .2, 1) both; animation-delay: var(--d); }
 @keyframes card-in {
@@ -534,9 +534,8 @@ textarea:focus { outline: none; border-color: var(--lavender-ink); box-shadow: 0
 .footer { border-top: 1px solid var(--line); padding: 36px var(--gutter) 44px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; font-size: 14px; color: var(--muted); }
 .footer > * { margin: 0; }
 .footer-name { color: var(--ink); font-weight: 600; font-size: 15px; }
-.credit { display: flex; align-items: center; justify-content: center; gap: 10px; }
-.credit img { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 4px 10px -6px rgba(31, 111, 229, .5); }
-.credit-text { color: #1F5FC9; font-size: 14px; font-weight: 600; letter-spacing: .01em; }
+.footer-logo { width: 52px; height: 52px; border-radius: 13px; box-shadow: 0 6px 14px -8px rgba(31, 111, 229, .55); margin-bottom: 2px; }
+.footer .credit-text { color: #1F5FC9; font-size: 13px; font-weight: 600; letter-spacing: .02em; margin-top: 4px; }
 
 /* 좁은 화면 */
 @media (max-width: 1220px) {
@@ -639,9 +638,6 @@ textarea:focus { outline: none; border-color: var(--lavender-ink); box-shadow: 0
 @media (max-width: 720px) {
   .hn-mid { display: none; }
   .cmp::before, .bento::before, .rules::before, .workbench::before { width: 200px; height: 180px; filter: blur(40px); }
-}
-@media (max-width: 380px) {
-  .credit { gap: 8px; }
 }
 .contact { font-size: 14px; color: var(--muted); }
 .contact a { color: var(--ink); font-weight: 600; text-decoration-color: var(--line); text-underline-offset: 3px; }
