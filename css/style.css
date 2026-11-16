@@ -531,10 +531,11 @@ textarea:focus { outline: none; border-color: var(--lavender-ink); box-shadow: 0
 .faq details[open] summary::after { transform: rotate(45deg); }
 .faq details > div { padding: 0 24px 24px; color: var(--muted); }
 
-.footer { border-top: 1px solid var(--line); padding: 32px var(--gutter) 48px; text-align: center; font-size: 14px; color: var(--muted); }
-.footer-name { color: var(--ink); font-weight: 600; margin-bottom: 4px; }
-.credit { margin-top: 18px; display: inline-flex; flex-direction: row; align-items: center; gap: 14px; }
-.credit img { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 6px 18px -10px rgba(31, 111, 229, .55); }
+.footer { border-top: 1px solid var(--line); padding: 36px var(--gutter) 44px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; font-size: 14px; color: var(--muted); }
+.footer > * { margin: 0; }
+.footer-name { color: var(--ink); font-weight: 600; font-size: 15px; }
+.credit { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.credit img { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 4px 10px -6px rgba(31, 111, 229, .5); }
 .credit-text { color: #1F5FC9; font-size: 14px; font-weight: 600; letter-spacing: .01em; }
 
 /* 좁은 화면 */
@@ -640,8 +641,9 @@ textarea:focus { outline: none; border-color: var(--lavender-ink); box-shadow: 0
   .cmp::before, .bento::before, .rules::before, .workbench::before { width: 200px; height: 180px; filter: blur(40px); }
 }
 @media (max-width: 380px) {
-  .credit { flex-direction: column; gap: 8px; }
-}.contact { margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .credit { gap: 8px; }
+}
+.contact { font-size: 14px; color: var(--muted); }
 .contact a { color: var(--ink); font-weight: 600; text-decoration-color: var(--line); text-underline-offset: 3px; }
 
 /* 내려받은 뒤 한 번만 뜨는 후기 안내 */
