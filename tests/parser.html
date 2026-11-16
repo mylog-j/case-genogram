@@ -283,6 +283,40 @@
   var base = '내담자는 김민수(남, 10세)이다. 아버지와 어머니가 있다.';
   check('문장 한 줄 더하면 사람 추가', parse(base + ' 누나 김지아(13세)가 있다.').persons.length === parse(base).persons.length + 1);
 
+  // ── 현장 사례: 재혼 가정 + 이복동생 (2026-11-16)
+  var cs = parse('클라이언트는 10세 여자아동으로 아버지, 새어머니 6세이복 남동생과 살고있음\n' +
+    '클라이언트의 아버지는 클라이언트 어머니와 2009년에결혼하였다가 2012년에 이혼하고 2013년 제혼함\n' +
+    '클라이언트는 아버지 및 남동생과 소원한 관계이며, 새어머니와 갈등 관계를 작고 있음\n' +
+    '남동생은 부모와 친밀한 관계를 갖고 있음\n' +
+    '클라이언트의 아버지와 새어미니는 보통 관계를 갖고 있으며 부부 모두 아들과 친밀한 편임');
+  var lb = function (m, l) { return m.persons.filter(function (p) { return p.label === l; })[0]; };
+  var csC = client(cs), csF = lb(cs, '아버지'), csM = lb(cs, '어머니'), csSM = lb(cs, '새어머니'), csB = lb(cs, '이복 남동생');
+  check('클라이언트로 쓰면 클라이언트로 표시', csC.label === '클라이언트');
+  check('"10세 여자아동" → 여, 10세 (사람이 여럿인 마디)', csC.gender === 'F' && csC.age === 10, J(csC));
+  check('"작고 있음"(오타)은 사망 아님', !csSM.deceased);
+  check('"6세이복 남동생" → 이복 남동생 6세', csB && csB.age === 6 && csB.gender === 'M');
+  check('사람은 5명 (아들·남동생을 따로 만들지 않음)', cs.persons.length === 5, J(cs.persons.map(function (p) { return p.label; })));
+  var uFM = cs.unions.filter(function (u) { return [u.a, u.b].indexOf(csF.id) >= 0 && [u.a, u.b].indexOf(csM.id) >= 0; })[0];
+  var uFS = cs.unions.filter(function (u) { return [u.a, u.b].indexOf(csF.id) >= 0 && [u.a, u.b].indexOf(csSM.id) >= 0; })[0];
+  check('아버지·어머니: 결혼 2009 · 이혼 2012', uFM && uFM.status === 'divorced' && uFM.start === 2009 && uFM.end === 2012, J(uFM));
+  check('아버지·새어머니: 재혼 2013 (제혼 오타)', uFS && uFS.status === 'married' && uFS.start === 2013, J(uFS));
+  check('이복 남동생은 아버지·새어머니의 자녀', cs.links.some(function (l) { return l.union === uFS.id && l.child === csB.id; }));
+  check('함께 사는 가족 4명', cs.household.length === 4 && [csC, csF, csSM, csB].every(function (p) { return cs.household.indexOf(p.id) >= 0; }));
+  check('남동생의 "부모" = 아버지·새어머니 (친밀)', rel(cs, csB, csF, 'close') && rel(cs, csB, csSM, 'close') && !cs.relations.some(function (r) { return r.a === csB.id && r.b === csM.id; }));
+  check('클라이언트-새어머니 갈등', rel(cs, csC, csSM, 'conflict'));
+  check('내담자로 쓰면 내담자로 표시', client(parse('내담자는 12세 남아이다.')).label === '내담자');
+
+  // 새가족 낱말
+  [['새아빠가 있다.', '새아빠', 'M>H'], ['새엄마가 있다.', '새엄마', 'F>W'], ['계부가 있다.', '계부', 'M>H'], ['의붓엄마가 있다.', '의붓엄마', 'F>W']].forEach(function (k) { kin(k[0], k[1], k[2]); });
+  var hb = parse('이복 형이 있다. 이부 여동생이 있다. 배다른 누나가 있다.');
+  check('이복 형 · 이부 여동생 · 배다른 누나 → 이복/이부 자리', ['이복 형', '이부 여동생', '배다른 누나'].every(function (l) { var p = lb(hb, l); return p && !hb.links.some(function (x) { return x.child === p.id && x.union === F.parentUnionOf(hb, client(hb).id).id; }); }), J(hb.persons.map(function (p) { return p.label; })));
+  var ss = parse('새엄마가 있다. 의붓언니가 있다.');
+  var ssU = lb(ss, '의붓언니');
+  check('의붓언니 → 새엄마가 이전 결혼에서 낳은 자녀', ssU && ss.links.some(function (l) { var u = ss.unions.filter(function (x) { return x.id === l.union; })[0]; return l.child === ssU.id && u && [u.a, u.b].indexOf(lb(ss, '새엄마').id) >= 0; }));
+  check('의붓형제만 있고 새부모가 없으면 고르기', parse('의붓형제가 있다.').choices.some(function (c) { return /^stepsib/.test(c.key); }));
+  check('"작고했다"는 사망', lb(parse('외할아버지는 작고했다.'), '외할아버지').deceased === true);
+  check('"아버지와 살고 있다" → 함께 사는 가족', parse('내담자는 아버지와 살고 있다.').household.length === 2);
+
   document.getElementById('summary').textContent = '통과 ' + pass + ' · 실패 ' + fail;
   document.title = fail ? '실패 ' + fail : '모두 통과';
   window.__testResult = { pass: pass, fail: fail };

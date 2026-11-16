@@ -26,8 +26,12 @@
     ['어머니', 'M'], ['엄마', 'M'], ['모친', 'M'], ['친모', 'M'], ['생모', 'M'], ['친어머니', 'M'],
     ['양아버지', { p: 'F', adopt: true }], ['양부', { p: 'F', adopt: true }],
     ['양어머니', { p: 'M', adopt: true }], ['양모', { p: 'M', adopt: true }],
-    ['새아버지', 'M>H*'], ['계부', 'M>H*'], ['의붓아버지', 'M>H*'],
-    ['새어머니', 'F>W*'], ['계모', 'F>W*'], ['의붓어머니', 'F>W*'],
+    ['친아빠', 'F'], ['친엄마', 'M'], ['생물학적 아버지', 'F'], ['생물학적 어머니', 'M'],
+    ['양아빠', { p: 'F', adopt: true }], ['양엄마', { p: 'M', adopt: true }],
+    ['새아버지', 'M>H*'], ['계부', 'M>H*'], ['의붓아버지', 'M>H*'], ['새아빠', 'M>H*'], ['의붓아빠', 'M>H*'],
+    ['새 아버지', 'M>H*'], ['새 아빠', 'M>H*'],
+    ['새어머니', 'F>W*'], ['계모', 'F>W*'], ['의붓어머니', 'F>W*'], ['새엄마', 'F>W*'], ['의붓엄마', 'F>W*'],
+    ['새 어머니', 'F>W*'], ['새 엄마', 'F>W*'],
 
     // 조부모 이상 (친가)
     ['친할아버지', 'F>F'], ['조부', 'F>F'], ['친조부', 'F>F'],
@@ -130,16 +134,22 @@
     ['내담자', { t: 'self' }], ['클라이언트', { t: 'self' }], ['본인', { t: 'self' }],
     ['반려견', { t: 'pet', species: '반려견' }], ['강아지', { t: 'pet', species: '반려견' }],
     ['반려묘', { t: 'pet', species: '반려묘' }], ['고양이', { t: 'pet', species: '반려묘' }],
-    ['반려동물', { t: 'pet', species: '반려동물' }]
+    ['반려동물', { t: 'pet', species: '반려동물' }],
+    ['부부', { t: 'couple' }]
   ];
 
   // 이복·이부·쌍둥이·사촌 형제 낱말 만들기
   var SIB_BASE = [['형', 'B+'], ['오빠', 'B+'], ['누나', 'Z+'], ['언니', 'Z+'], ['남동생', 'B-'], ['여동생', 'Z-'], ['동생', 'X-']];
   var HALF = [], TWIN = [];
+  // 아버지만 같은(이복) · 어머니만 같은(이부) · 새부모가 데려온(의붓) 형제
+  var HALF_P = ['이복', '이복 ', '배다른 ', '배다른', '어머니가 다른 ', '엄마가 다른 ', '어머니 다른 ', '엄마 다른 '];
+  var HALF_M = ['이부', '이부 ', '씨다른 ', '씨다른', '아버지가 다른 ', '아빠가 다른 ', '아버지 다른 ', '아빠 다른 '];
+  var STEP_SIB = ['의붓', '의붓 '];
   SIB_BASE.forEach(function (s) {
     var g = s[1][0] === 'B' ? 'M' : s[1][0] === 'Z' ? 'F' : 'U', ord = s[1].slice(-1) === '+' ? 'older' : 'younger';
-    HALF.push(['이복' + s[0], { t: 'half', side: 'P', g: g, order: ord }], ['배다른 ' + s[0], { t: 'half', side: 'P', g: g, order: ord }],
-      ['이부' + s[0], { t: 'half', side: 'M', g: g, order: ord }], ['씨다른 ' + s[0], { t: 'half', side: 'M', g: g, order: ord }]);
+    HALF_P.forEach(function (pre) { HALF.push([pre + s[0], { t: 'half', side: 'P', g: g, order: ord }]); });
+    HALF_M.forEach(function (pre) { HALF.push([pre + s[0], { t: 'half', side: 'M', g: g, order: ord }]); });
+    STEP_SIB.forEach(function (pre) { HALF.push([pre + s[0], { t: 'stepsib', g: g, order: ord }]); });
     TWIN.push(['쌍둥이 ' + s[0], { p: s[1], twin: true }], ['일란성 쌍둥이 ' + s[0], { p: s[1], twin: true, identical: true }]);
     ['친사촌', '고종사촌', '이종사촌', '외사촌'].forEach(function (c) {
       var base = KIN.filter(function (k) { return k[0] === c; })[0][1];
@@ -148,7 +158,11 @@
     });
     KIN_CHOICE.push(['사촌 ' + s[0], { q: '사촌은 어느 쪽인가요?', g: g, opts: [['F>B>K', '친사촌'], ['F>Z>K', '고종사촌'], ['M>Z>K', '이종사촌'], ['M>B>K', '외사촌']], def: null }]);
   });
-  HALF.push(['이복형제', { t: 'half', side: 'P', g: 'U', order: null }], ['이부형제', { t: 'half', side: 'M', g: 'U', order: null }]);
+  [['형제', 'U'], ['남매', 'U'], ['자매', 'F'], ['형제자매', 'U']].forEach(function (w) {
+    ['이복', '이복 ', '배다른 '].forEach(function (pre) { HALF.push([pre + w[0], { t: 'half', side: 'P', g: w[1], order: null }]); });
+    ['이부', '이부 ', '씨다른 '].forEach(function (pre) { HALF.push([pre + w[0], { t: 'half', side: 'M', g: w[1], order: null }]); });
+    STEP_SIB.forEach(function (pre) { HALF.push([pre + w[0], { t: 'stepsib', g: w[1], order: null }]); });
+  });
 
   var LEX = [];
   KIN.concat(TWIN).forEach(function (w) {
@@ -195,12 +209,17 @@
     [/훈육이 ?심|체벌/, ['abuse', 'conflict'], '훈육'],
     [/가깝|가까/, ['close', 'fused'], '가깝다']
   ];
-  var DEATH_RE = /사망|돌아가|별세|작고|세상을 ?떠|숨졌|숨지/;
+  // '작고'는 "작고하다/작고했다/작고한"일 때만 사망 ("갈등 관계를 작고 있음" 같은 오타는 사망이 아님)
+  var DEATH_RE = /사망|돌아가|별세|작고 ?(하|했|한|함|하였|하셨)|세상을 ?떠|숨졌|숨지/;
   // 당한 쪽에서 쓴 문장: "아버지에게 맞았다", "어머니로부터 방임되었다", "삼촌에 의해 학대받았다"
   var PASSIVE_RE = /당했|당함|당하|당해|받았|받음|받고|받는|맞았|맞고|맞는|맞아|로부터|에 ?의해|(방임|방치|학대|폭행)(되었|됐|되어|돼)/;
   var SOURCE_RE = /진술|라고 ?(했|말했|함|한다)|주장/;
   var TENTATIVE_RE = /의심|추정|것 ?같/;
-  var HOUSE_RE = /(함께|같이) ?(살|산다|거주|생활)|한집에/;
+  var HOUSE_RE = /(함께|같이) ?(살|산다|거주|생활)|한집에|(와|과|랑|이랑|하고)\s*(살고|살며|살아|산다|삽니다|살고있|거주하|거주 ?중|생활하|생활 ?중|지내고|지낸다)/;
+  // 자주 나오는 오타 바로잡기
+  var TYPOS = [[/제혼/g, '재혼'], [/어미니/g, '어머니'], [/아부지/g, '아버지'], [/할머님/g, '할머니'], [/할아버님/g, '할아버지']];
+  // 주어 바로 뒤의 성별 낱말 ("클라이언트는 10세 여자아동으로")
+  var GENDER_F = /(여자|여성|여아|여학생|소녀|여중생|여고생|여대생)/, GENDER_M = /(남자|남성|남아|남학생|소년|남중생|남고생|남대생)/;
   var HAVE_RE = /(이|가)\s*([가-힣]+\s*)?(한|두|세|네|\d+)?\s*(명)?\s*(씩\s*)?(있|없)/;
 
   var SURNAMES = '김이박최정강조윤장임한오서신권황안송류유홍전고문양손배백허남심노하곽성차주우구민진나지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용예경봉사부';
@@ -416,6 +435,15 @@
       var s = pick(sibs);
       if (s === 'PENDING') return s;
       if (s) return s;
+      // 앞에서 "이복 남동생"으로 소개한 사람을 뒤에서 "남동생"이라고만 불러도 같은 사람
+      if (isFinal) {
+        var halfs = [];
+        F.parentsOf(m, x.id).forEach(function (pa) {
+          F.unionsOf(m, pa.id).forEach(function (un) { halfs = halfs.concat(F.childrenOf(m, un.id)); });
+        });
+        var hs = halfs.filter(function (c) { return c.id !== x.id && c.kind === 'person' && sibs.indexOf(c) < 0 && compat(c) && c.label && c.label.slice(-label.length) === label; })[0];
+        if (hs) return hs;
+      }
       var u = F.ensureParentUnion(m, x.id);
       s = make();
       F.addLink(m, u.id, s.id, 'bio');
@@ -444,7 +472,12 @@
         .map(function (un) { return F.person(m, F.partnerIn(un, x.id)); });
       var st = pick(others) || others.filter(function (c) { return c.implied; })[0];
       if (st === 'PENDING') return st;
-      if (st) return st;
+      if (st) {
+        // 이복형제 때문에 미리 만든 '다른 배우자' 자리가 새부모로 확인되면 지금의 결혼으로
+        var su = F.unionsOf(m, x.id).filter(function (un) { return F.partnerIn(un, x.id) === st.id; })[0];
+        if (su && st.implied && su.status === 'divorced' && !su.end) su.status = 'married';
+        return st;
+      }
       st = make();
       F.addUnion(m, x.id, st.id, 'married');
       return st;
@@ -514,6 +547,8 @@
     if (s.t === 'self') {
       var c = this.client();
       if (c.implied) { c.implied = false; this.effects++; }
+      // 사례에 처음 쓴 말(클라이언트·내담자)을 그대로 이름으로
+      if (!this.clientWord && word !== '본인') { this.clientWord = word; if (c.label !== word) { c.label = word; this.effects++; } }
       finish(c);
       return out;
     }
@@ -546,6 +581,48 @@
         if (q === 'PENDING') { out.pending = true; return; }
         if (group) { if (q) out.push(q); } else finish(q);
       });
+      return out;
+    }
+    if (s.t === 'couple') {
+      // "부부" → 바로 앞에 함께 나온 두 사람이 부부면 그 둘, 아니면 내담자의 지금 결혼, 그다음 내담자의 부모
+      var cu = null, lp = this.sentence.lastPeople || [];
+      if (lp.length === 2) cu = F.unionsOf(m, lp[0].id).filter(function (un) { return F.partnerIn(un, lp[0].id) === lp[1].id; })[0] || null;
+      var cl = F.clientOf(m);
+      if (!cu && cl) cu = F.currentUnion(m, cl.id) || null;
+      if (cu && !F.partnerIn(cu, cu.a)) cu = null;
+      if (!cu && cl) cu = F.parentUnionOf(m, cl.id) || null;
+      if (!cu || !cu.a || !cu.b) return out;
+      out.push(F.person(m, cu.a), F.person(m, cu.b));
+      out.couple = cu;
+      return out;
+    }
+    if (s.t === 'stepsib') {
+      // 의붓형제: 새아버지·새어머니가 다른 결혼에서 낳은 자녀
+      var ak = anchor.key || anchor.id;
+      var hasSM = m.persons.some(function (q) { return q.key === ak + '>F>W*'; });
+      var hasSF = m.persons.some(function (q) { return q.key === ak + '>M>H*'; });
+      var sp = this.choose({
+        key: 'stepsib|' + ak, kind: 'kin', text: clause,
+        question: (anchor.client ? '' : F.displayName(anchor) + '의 ') + word + '은(는) 누구의 자녀인가요?',
+        options: [['F>W*', '새어머니가 데려온 자녀'], ['M>H*', '새아버지가 데려온 자녀']],
+        def: hasSM && !hasSF ? 'F>W*' : hasSF && !hasSM ? 'M>H*' : null
+      });
+      if (!sp) { out.pending = true; return out; }
+      var stp = this.walk(anchor, sp, sp === 'F>W*' ? '새어머니' : '새아버지', { name: '', attrs: {} }, clause);
+      if (!stp || stp === 'PENDING') { out.pending = true; return out; }
+      var bioP = F.parentOf(m, anchor.id, sp === 'F>W*' ? 'M' : 'F', null, false);
+      var su2 = F.unionsOf(m, stp.id).filter(function (x) { var pp = F.partnerIn(x, stp.id); return pp && (!bioP || pp !== bioP.id); })[0];
+      if (!su2) {
+        var prevP = this.mk({ key: ak + '>STEPP:' + sp, gender: stp.gender === 'M' ? 'F' : 'M', implied: true, label: F.displayName(stp) + '의 이전 배우자' });
+        su2 = F.addUnion(m, stp.id, prevP.id, 'divorced');
+      }
+      var sskey = ak + '>SS:' + word;
+      var ss = m.persons.filter(function (q) { return q.key === sskey && (!after.name || !q.name || q.name === after.name); })[0];
+      if (!ss) {
+        ss = this.mk({ key: sskey, gender: s.g, order: s.order, label: anchor.client ? word.replace(/^의붓 /, '의붓') : F.displayName(anchor) + '의 ' + word });
+        F.addLink(m, su2.id, ss.id, 'bio');
+      }
+      finish(ss);
       return out;
     }
     if (s.t === 'half') {
@@ -587,7 +664,8 @@
     var m = this.m, mentions = [], i = 0, holder = null;
     var haveClause = HAVE_RE.test(text);
     while (i < text.length) {
-      if (i === 0 || PREV_OK.test(text[i - 1])) {
+      // "6세이복 남동생"처럼 나이 뒤에 붙여 쓴 호칭도 읽는다
+      if (i === 0 || PREV_OK.test(text[i - 1]) || /\d\s*(세|살)$/.test(text.slice(Math.max(0, i - 5), i))) {
         var hit = null;
         for (var k = 0; k < LEX.length; k++) {
           var w = LEX[k].word;
@@ -605,6 +683,26 @@
           if (/중\s*$/.test(text.slice(Math.max(0, i - 4), i)) && /^(장남|장녀|차남|차녀|막내)/.test(hit.word)) { i += hit.word.length; continue; }
           var anchor = null, prev = mentions[mentions.length - 1];
           if (prev && prev.persons.length === 1 && /^의\s*$/.test(text.slice(prev.end, i))) { anchor = prev.persons[0]; prev.possessive = true; }
+          // "클라이언트 어머니"처럼 '의' 없이 붙여 쓴 경우
+          if (!anchor && prev && prev.self && hit.spec.t !== 'self' && /^\s+$/.test(text.slice(prev.end, i))) { anchor = prev.persons[0]; prev.possessive = true; }
+          // "부부 모두 아들과" → 그 부부의 아들
+          if (!anchor && prev && prev.couple && hit.spec.t === 'path' && /^[SDK]$/.test(hit.spec.p)) {
+            var cg = segInfo(hit.spec.p).g;
+            var ck = F.childrenOf(m, prev.couple.id).filter(function (q) { return q.kind === 'person' && !q.client && (cg === 'U' || q.gender === cg || q.gender === 'U'); });
+            var cp = ck[0];
+            if (!cp) {
+              cp = this.mk({ key: (F.person(m, prev.couple.a).key || prev.couple.a) + '+' + (F.person(m, prev.couple.b).key || prev.couple.b) + '>' + hit.spec.p, gender: cg, label: hit.word });
+              F.addLink(m, prev.couple.id, cp.id, 'bio');
+            }
+            mentions.push({ start: i, end: i + hit.word.length, persons: [cp], word: hit.word });
+            i += hit.word.length;
+            continue;
+          }
+          // "남동생은 부모와 친밀하다" → 남동생의 부모
+          if (!anchor && hit.spec.t === 'group' && mentions.length && !holder) {
+            var subj = mentions[0];
+            if (subj.persons.length === 1 && subj.persons[0].kind === 'person' && !subj.persons[0].client && /^\s*(은|는|이|가)\s/.test(text.slice(subj.end, subj.end + 3))) anchor = subj.persons[0];
+          }
           if (!anchor && hit.spec.t !== 'self') anchor = holder || (mentions.length === 0 ? this.sentence.carry : null);
           if (!anchor) anchor = this.client();
           var after = readNameAfter(text, i + hit.word.length, m);
@@ -622,7 +720,8 @@
           var persons = this.resolve(anchor, hit, after, text);
           if (ageBefore && persons.length === 1 && persons[0].age == null) { persons[0].age = +ageBefore[1]; this.effects++; }
           var end = Math.max(after.end, i + hit.word.length);
-          var mention = { start: i, end: end, persons: persons, word: hit.word, pending: !!persons.pending, anchorFrom: anchor };
+          var mention = { start: i, end: end, persons: persons, word: hit.word, pending: !!persons.pending, anchorFrom: anchor,
+            self: hit.spec.t === 'self', couple: persons.couple || null };
           mentions.push(mention);
           // "남편에게는 ~이 있다", "남편은 누나가 있다" → 뒤의 호칭은 남편 기준
           var suffix = text.slice(end, end + 6);
@@ -677,6 +776,20 @@
     return uniq(out);
   }
 
+  // 연도 바로 뒤에 오는 결혼·이혼·재혼 낱말로 짝짓기
+  function yearEvents(text) {
+    var ev = {}, re = /(\d{4})\s*년(?!생)/g, mm;
+    while ((mm = re.exec(text))) {
+      var tail = text.slice(re.lastIndex, re.lastIndex + 12);
+      var k = /^\s*(?:에|도|경|쯤|무렵)?\s*(?:에)?\s*(재혼|결혼|혼인|이혼|별거)/.exec(tail);
+      if (!k) continue;
+      var y = +mm[1];
+      if (k[1] === '재혼') ev.re = ev.re || y;
+      else if (k[1] === '이혼' || k[1] === '별거') ev.end = ev.end || y;
+      else ev.start = ev.start || y;
+    }
+    return ev;
+  }
   function years(text) {
     var out = [], re = /(\d{4})\s*년(?!생)/g, mm;
     while ((mm = re.exec(text))) out.push(+mm[1]);
@@ -779,7 +892,18 @@
       else if (/학대/.test(text)) sub = 'physical';
       else sub = 'violence';
       var mutual = /서로/.test(text);
-      others.forEach(function (o) {
+      // "부부 모두 아들과", "부모는 남동생을" → 주어 묶음의 사람마다 상대와 잇기
+      var pairs = others.map(function (o) { return [first, o]; });
+      var lead = mentions.filter(function (mm) { return !mm.possessive; })[0];
+      if (lead && lead.persons.length >= 2) {
+        var objs = people.filter(function (p) { return lead.persons.indexOf(p) < 0; });
+        if (objs.length) {
+          pairs = [];
+          lead.persons.forEach(function (sp) { objs.forEach(function (o) { pairs.push([sp, o]); }); });
+        }
+      }
+      pairs.forEach(function (pr) {
+        var first = pr[0], o = pr[1];
         var from = first, to = o;
         if (passive || fearful) { from = o; to = first; }
         var type = relType, key = null;
@@ -796,11 +920,14 @@
           type = value;
         }
         var nr = F.addRelation(m, from.id, to.id, type, { sub: type === 'abuse' ? sub : null, note: note, tentative: tentative, key: key });
-        if (nr) { if (mutual && F.REL[type].dir) nr.mutual = true; self.effects++; }
+        if (nr && mutual && F.REL[type].dir) nr.mutual = true;
+        self.effects++;   // 앞에서 이미 그은 관계를 다시 적은 것도 알아들은 것
       });
     }
     // 화살표가 있는 관계인데 한 사람만 나오면 "누가 했는지" 안내
     var missingActor = (relType && F.REL[relType] && F.REL[relType].dir) && people.length === 1;
+    // "보통 관계", "무난한 관계"는 선을 긋지 않는 것이 맞으므로 알아들은 것으로
+    if (!relType && !ambig && people.length >= 2 && /(보통|무난|평범|그럭저럭)/.test(text)) this.effects++;
 
     // ── 부부 관계
     var status = null;
@@ -851,8 +978,27 @@
         if (status && /재혼/.test(text) && !/이혼|별거/.test(text)) status = 'married';
         if (status) {
           u.status = status;
-          var ys = years(text);
-          if (ys.length) {
+          var ys = years(text), ev = yearEvents(text);
+          if (ev.start || ev.end || ev.re) {
+            // 연도마다 바로 뒤의 말로 짝짓기: "2009년 결혼, 2012년 이혼, 2013년 재혼"
+            if (ev.start) u.start = ev.start;
+            if (ev.end && (status === 'divorced' || status === 'separated')) u.end = ev.end;
+            if (ev.re) {
+              var who = ppl.filter(function (q) { return q.id === u.a || q.id === u.b; })[0] || F.person(m, u.a);
+              var ex2 = F.partnerIn(u, who.id);
+              if (status === 'divorced' || status === 'separated') {
+                var ru = F.unionsOf(m, who.id).filter(function (uu) { var pp = F.partnerIn(uu, who.id); return pp && pp !== ex2; })
+                  .sort(function (a1, b1) { return b1.seq - a1.seq; })[0];
+                if (!ru) {
+                  var rp = this.mk({ key: (who.key || who.id) + '>RE', gender: who.gender === 'M' ? 'F' : who.gender === 'F' ? 'M' : 'U', implied: true,
+                    label: F.displayName(who) + '의 재혼 배우자' });
+                  ru = F.addUnion(m, who.id, rp.id, 'married');
+                }
+                ru.start = ev.re;
+                if (ru.status === 'divorced' && !ru.end) ru.status = 'married';
+              } else if (!ev.start) u.start = ev.re;
+            }
+          } else if (ys.length) {
             if (ys.length >= 2) { u.start = ys[0]; u.end = ys[ys.length - 1]; }
             else if (status === 'divorced' || status === 'separated') u.end = ys[0];
             else u.start = ys[0];
@@ -922,6 +1068,27 @@
       members.forEach(function (p) { if (m.household.indexOf(p.id) < 0) { m.household.push(p.id); self.effects++; } });
     }
 
+    // ── 주어 바로 뒤의 나이·성별 ("클라이언트는 10세 여자아동으로 아버지, …와 살고 있음")
+    var lead2 = mentions.filter(function (mm) { return !mm.possessive; })[0];
+    if (lead2 && lead2.persons.length === 1 && lead2.persons[0].kind === 'person' && (people.length > 1 || parts.length > 1)) {
+      var nextM = mentions.filter(function (mm) { return mm.start >= lead2.end; })[0];
+      var seg = text.slice(lead2.end, nextM ? nextM.start : text.length);
+      var sm = /^\s*(은|는|이|가|께서)\s+/.exec(seg);
+      if (sm) {
+        var body = seg.slice(sm[0].length).split(/[,，]|(?:와|과|랑|이랑|하고|및)\s/)[0];
+        var sp1 = lead2.persons[0];
+        var am2 = /^(?:만\s*)?(\d{1,3})\s*(?:세|살)(?!에)/.exec(body);
+        // 나이 바로 뒤가 다음 사람이면 그 사람의 나이 ("어머니는 40세 딸이…")
+        var tailOnly = am2 && nextM && /^\s*$/.test(body.slice(am2[0].length)) && body === seg.slice(sm[0].length);
+        if (am2 && !tailOnly && sp1.age == null) { sp1.age = +am2[1]; this.effects++; }
+        var gw = /^(?:만\s*)?(?:\d{1,3}\s*(?:세|살)\s*)?(?:의\s*)?([가-힣]+)/.exec(body);
+        if (gw && !/(형제|자매|친구|동생|아이를|아들|딸)/.test(gw[1])) {
+          if (GENDER_F.test(gw[1]) && gw[1].search(GENDER_F) === 0 && sp1.gender !== 'F') { sp1.gender = 'F'; this.effects++; }
+          else if (GENDER_M.test(gw[1]) && gw[1].search(GENDER_M) === 0 && sp1.gender !== 'M') { sp1.gender = 'M'; this.effects++; }
+        }
+      }
+    }
+
     // ── 한 사람만 나오는 마디의 나이·성별·출생연도
     if (people.length === 1 && parts.length === 1) {
       var p1 = people[0];
@@ -929,8 +1096,8 @@
       if (am && p1.age == null && !/\d\s*[남녀]\s*\d?\s*[녀]?\s*중/.test(text.slice(0, am.index))) { p1.age = parseInt(am[1], 10); this.effects++; }
       var by = /(\d{4})\s*년생/.exec(text);
       if (by && !p1.birthYear) { p1.birthYear = +by[1]; this.effects++; }
-      if (/(^|\s)(남자|남성|남학생|남아)/.test(text) && p1.gender !== 'M') { p1.gender = 'M'; this.effects++; }
-      if (/(^|\s)(여자|여성|여학생|여아)/.test(text) && p1.gender !== 'F') { p1.gender = 'F'; this.effects++; }
+      if (/(^|\s)(남자|남성|남학생|남아|소년|남중생|남고생|남대생)/.test(text) && !/(남자|여자) ?(형제|친구)/.test(text) && p1.gender !== 'M') { p1.gender = 'M'; this.effects++; }
+      if (/(^|\s)(여자|여성|여학생|여아|소녀|여중생|여고생|여대생)/.test(text) && !/(남자|여자) ?(형제|친구)/.test(text) && p1.gender !== 'F') { p1.gender = 'F'; this.effects++; }
     }
 
     var st, hint = '';
@@ -974,6 +1141,8 @@
 
   function parse(text, answers) {
     var P = new Parser(answers);
+    text = text || '';
+    TYPOS.forEach(function (t) { text = text.replace(t[0], t[1]); });
     splitSentences(text || '').forEach(function (clauses) {
       P.sentence = { lastSubject: null, carry: null };
       clauses.forEach(function (c) { P.clause(c); });
